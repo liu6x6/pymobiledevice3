@@ -68,6 +68,14 @@ def decode_message_format(message):
     return s
 
 
+class StackItem(bytes):
+    def set_words(self, words):
+        self.words = words
+
+    def __int__(self):
+        return int.from_bytes(self, byteorder='little')
+
+
 class ActivityTraceTap(Tap):
     IDENTIFIER = 'com.apple.instruments.server.services.activitytracetap'
 
@@ -132,22 +140,31 @@ class ActivityTraceTap(Tap):
     def _handle_push(self, word):
         assert word >> 14 in (0b10, 0b11), f'invalid magic for pushed item. word: {hex(word)}'
 
+        words = [word]
+
         count = 0
         imm = 0
         bit_count = 0
+        zeroes = 0
         while word >> 14 != 0b11:
             # not end word
             imm = (imm << 14) | (word & 0x3fff)
             word = self._read_word()
             count += 1
             bit_count += 14
+            words.append(word)
         imm = (imm << 14) | (word & 0x3fff)
         bit_count += 14
 
         imm <<= (8 - bit_count % 8)
 
         result = imm.to_bytes(math.ceil(len(bin(imm)[2:]) / 8), 'big')
+        result = StackItem(result)
+        result.set_words(words)
+
         self.stack.append(result)
+
+        print(result, words)
 
         return result
 
@@ -188,13 +205,13 @@ class ActivityTraceTap(Tap):
     def _handle_debug(self, word):
         """ pop last pushed item from stack """
         # TODO: fix asserts
-        # debug_id = word & 0xff
-        # item = self.stack[-1]
-        #
-        # reference = int.from_bytes(item, byteorder='little')
-        #
-        # assert reference == len(self.stack) - 1, f'assert debug {debug_id} got reference: {hex(reference)} instead of:' \
-        #                                          f'{len(self.stack) - 1}  {item}'
+        debug_id = word & 0xff
+        item = self.stack[-1]
+
+        reference = int(item)
+
+        assert reference == len(self.stack) - 1, f'assert debug {debug_id} got reference: {hex(reference)} instead of:' \
+                                                 f'{len(self.stack) - 1}  {item}'
         self.stack = self.stack[:-1]
 
     def _handle_copy(self, word):
