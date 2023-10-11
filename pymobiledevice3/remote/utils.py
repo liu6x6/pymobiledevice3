@@ -25,7 +25,7 @@ def stop_remoted_if_required() -> None:
     if platform.system() != 'Darwin':
         # only Darwin systems require it
         return
-
+    print("stop_remoted_if_required")
     remoted = get_remoted_process()
     if remoted is None:
         return
@@ -43,6 +43,8 @@ def resume_remoted_if_required() -> None:
     if platform.system() != 'Darwin':
         # only Darwin systems require it
         return
+        
+    print(resume_remoted_if_required)
 
     remoted = get_remoted_process()
     if remoted is None:

@@ -1,0 +1,122 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: attach",
+            "type": "python",
+            "request": "attach",
+            "connect": {
+                "host": "localhost",
+                "port": 5678
+              },
+            "justMyCode": true
+        },
+        {
+            "name": "Python: Current File2",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Python: launch Main",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/pymobiledevice3",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Python: launch Sniff",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/misc/remotexpc_sniffer.py",
+            "args": [
+                "live",
+                "utun5"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Python: launch remote1",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/pymobiledevice3",
+            "args": [
+                "remote",
+                "browse",
+            
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "sudo": true
+        },
+        {
+            "name": "Python: Start quic tunnel",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/pymobiledevice3",
+            "args": [
+                "remote",
+                "start-quic-tunnel",
+            
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "sudo": true
+        },
+        {
+            "name": "Python: test dvt ls ",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/pymobiledevice3",
+            "args": [
+                "developer",
+                "dvt",
+                "ls",
+                "/Applications"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "sudo": false
+        },
+
+        {
+            "name": "Python: test dvt ls --rds ",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/pymobiledevice3",
+            "args": [
+                "developer",
+                "dvt",
+                "ls",
+                "/Applications",
+                "--rsd",
+               "fd0f:98cc:55fc::1",
+                "62456"
+            
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "sudo": true
+        },
+        {
+            "name": "Python Debug",
+            "type": "python",
+            "request": "launch",
+            "module": "/Users/xiao/work2/pymobiledevice3/pymobiledevice3/__main__",
+            "args": [],
+            "env": {
+                "PYTHONPATH": "/Users/xiao/miniconda3/envs/py310/bin/python"
+            },
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}"
+          }
+          
+    ]
+}

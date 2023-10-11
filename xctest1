@@ -1,0 +1,321 @@
+WARNING: No IPv4 address found on en5 !
+WARNING: No IPv4 address found on en3 !
+WARNING: more No IPv4 address found on en4 !
+2023-08-21 15:20:28 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::2/57138//fdab:e16c:a12::1/61877 (DataFrame(stream_id=1, flags=[]): <hex:920bb029010101005000...>)
+2023-08-21 15:20:28 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#1): {'MessageType': 'Heartbeat', 'SequenceNumber': 164}
+2023-08-21 15:20:28 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/61877//fdab:e16c:a12::2/57138 (DataFrame(stream_id=3, flags=[]): <hex:920bb029010102003000...>)
+2023-08-21 15:20:28 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#3): {'SequenceNumber': 164}
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::2/57138//fdab:e16c:a12::1/61877 (DataFrame(stream_id=1, flags=[]): <hex:920bb029010101005000...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#1): {'MessageType': 'Heartbeat', 'SequenceNumber': 165}
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/61877//fdab:e16c:a12::2/57138 (DataFrame(stream_id=3, flags=[]): <hex:920bb029010102003000...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#3): {'SequenceNumber': 165}
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::2/57138//fdab:e16c:a12::1/61877 (DataFrame(stream_id=1, flags=[]): <hex:920bb029010101005000...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#1): {'MessageType': 'Heartbeat', 'SequenceNumber': 166}
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/61877//fdab:e16c:a12::2/57138 (DataFrame(stream_id=3, flags=[]): <hex:920bb029010102003000...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#3): {'SequenceNumber': 166}
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::2/57138//fdab:e16c:a12::1/61877 (DataFrame(stream_id=1, flags=[]): <hex:920bb029010101005000...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#1): {'MessageType': 'Heartbeat', 'SequenceNumber': 167}
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/61877//fdab:e16c:a12::2/57138 (DataFrame(stream_id=3, flags=[]): <hex:920bb029010102003000...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#3): {'SequenceNumber': 167}
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::2/57138//fdab:e16c:a12::1/61877 (DataFrame(stream_id=1, flags=[]): <hex:920bb029010101005000...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#1): {'MessageType': 'Heartbeat', 'SequenceNumber': 168}
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/61877//fdab:e16c:a12::2/57138 (DataFrame(stream_id=3, flags=[]): <hex:920bb029010102003000...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#3): {'SequenceNumber': 168}
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::2/57138//fdab:e16c:a12::1/61877 (DataFrame(stream_id=1, flags=[]): <hex:920bb029010101005000...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#1): {'MessageType': 'Heartbeat', 'SequenceNumber': 169}
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/61877//fdab:e16c:a12::2/57138 (DataFrame(stream_id=3, flags=[]): <hex:920bb029010102003000...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#3): {'SequenceNumber': 169}
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG HTTP/2 magic bytes
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::2/58016//fdab:e16c:a12::1/53093 (SettingsFrame(stream_id=0, flags=[]): settings={3: 100, 4: 1048576})
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::2/58016//fdab:e16c:a12::1/53093 (WindowUpdateFrame(stream_id=0, flags=[]): window_increment=983041)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::2/58016//fdab:e16c:a12::1/53093 (HeadersFrame(stream_id=1, flags=['END_HEADERS']): exclusive=False, depends_on=0, stream_weight=0, data=None)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG fdab:e16c:a12::2 opening stream 1 for communication on port 53093
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::2/58016//fdab:e16c:a12::1/53093 (DataFrame(stream_id=1, flags=[]): <hex:920bb029010000001400...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#1): {}
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::2/58016//fdab:e16c:a12::1/53093 (HeadersFrame(stream_id=3, flags=['END_HEADERS']): exclusive=False, depends_on=0, stream_weight=0, data=None)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG fdab:e16c:a12::2 opening stream 3 for communication on port 53093
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::2/58016//fdab:e16c:a12::1/53093 (DataFrame(stream_id=3, flags=[]): <hex:920bb029010040000000...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::2/58016//fdab:e16c:a12::1/53093 (DataFrame(stream_id=1, flags=[]): <hex:920bb029010200000000...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53093//fdab:e16c:a12::2/58016 (SettingsFrame(stream_id=0, flags=[]): settings={3: 100, 4: 1048576})
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::2/58016//fdab:e16c:a12::1/53093 (SettingsFrame(stream_id=0, flags=['ACK']): settings={})
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53093//fdab:e16c:a12::2/58016 (WindowUpdateFrame(stream_id=0, flags=[]): window_increment=983041)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53093//fdab:e16c:a12::2/58016 (SettingsFrame(stream_id=0, flags=['ACK']): settings={})
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53093//fdab:e16c:a12::2/58016 (HeadersFrame(stream_id=1, flags=['END_HEADERS']): exclusive=False, depends_on=0, stream_weight=0, data=None)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG fdab:e16c:a12::1 opening stream 1 for communication on port 58016
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53093//fdab:e16c:a12::2/58016 (DataFrame(stream_id=1, flags=[]): <hex:920bb029010000001400...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#1): {}
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53093//fdab:e16c:a12::2/58016 (DataFrame(stream_id=1, flags=[]): <hex:920bb029010200000000...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53093//fdab:e16c:a12::2/58016 (HeadersFrame(stream_id=3, flags=['END_HEADERS']): exclusive=False, depends_on=0, stream_weight=0, data=None)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG fdab:e16c:a12::1 opening stream 3 for communication on port 58016
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53093//fdab:e16c:a12::2/58016 (DataFrame(stream_id=3, flags=[]): <hex:920bb029010040000000...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::2/58016//fdab:e16c:a12::1/53093 (DataFrame(stream_id=1, flags=[]): <hex:920bb02901010000a400...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#1): {'BundleID': 'com.facebook.WebDriverAgentRunner.xctrunner',
+ 'ProtocolVersion': 1,
+ 'RequestType': 4,
+ 'RequestVersion': 1}
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53093//fdab:e16c:a12::2/58016 (DataFrame(stream_id=1, flags=[]): <hex:920bb02901010000c801...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#1): {'DBSequence': 1608,
+ 'DBUUID': '8049EB5B-196C-44B0-BB9C-472BCFD4E00A',
+ 'InstallPath': {'com.apple.CFURL.base': None,
+                 'com.apple.CFURL.magic': UUID('c3853dcc-9776-4114-b6c1-fd9f51944a6d'),
+                 'com.apple.CFURL.string': 'file:///private/var/containers/Bundle/Application/7748D983-8733-4805-B29C-1BF45D456EA1/WebDriverAgentRunner-Runner.app/'},
+ 'PersistentIdentifier': b'\x00\x00\x00\x00H\x06\x00\x00\x08\x00\x00\x00'
+                         b'\x80I\xeb[\x19lD\xb0\xbb\x9cG+\xcf\xd4\xe0\n'
+                         b'H\x06\x00\x00\x00\x00\x00\x00',
+ 'RequestType': 4,
+ 'Success': True}
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG HTTP/2 magic bytes
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::2/58017//fdab:e16c:a12::1/53093 (SettingsFrame(stream_id=0, flags=[]): settings={3: 100, 4: 1048576})
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::2/58017//fdab:e16c:a12::1/53093 (WindowUpdateFrame(stream_id=0, flags=[]): window_increment=983041)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::2/58017//fdab:e16c:a12::1/53093 (HeadersFrame(stream_id=1, flags=['END_HEADERS']): exclusive=False, depends_on=0, stream_weight=0, data=None)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG fdab:e16c:a12::2 opening stream 1 for communication on port 53093
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::2/58017//fdab:e16c:a12::1/53093 (DataFrame(stream_id=1, flags=[]): <hex:920bb029010000001400...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#1): {}
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::2/58017//fdab:e16c:a12::1/53093 (DataFrame(stream_id=1, flags=[]): <hex:920bb029010200000000...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::2/58017//fdab:e16c:a12::1/53093 (HeadersFrame(stream_id=3, flags=['END_HEADERS']): exclusive=False, depends_on=0, stream_weight=0, data=None)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG fdab:e16c:a12::2 opening stream 3 for communication on port 53093
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::2/58017//fdab:e16c:a12::1/53093 (DataFrame(stream_id=3, flags=[]): <hex:920bb029010040000000...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53093//fdab:e16c:a12::2/58017 (SettingsFrame(stream_id=0, flags=[]): settings={3: 100, 4: 1048576})
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::2/58017//fdab:e16c:a12::1/53093 (SettingsFrame(stream_id=0, flags=['ACK']): settings={})
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53093//fdab:e16c:a12::2/58017 (WindowUpdateFrame(stream_id=0, flags=[]): window_increment=983041)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53093//fdab:e16c:a12::2/58017 (SettingsFrame(stream_id=0, flags=['ACK']): settings={})
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53093//fdab:e16c:a12::2/58017 (HeadersFrame(stream_id=1, flags=['END_HEADERS']): exclusive=False, depends_on=0, stream_weight=0, data=None)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG fdab:e16c:a12::1 opening stream 1 for communication on port 58017
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53093//fdab:e16c:a12::2/58017 (DataFrame(stream_id=1, flags=[]): <hex:920bb029010000001400...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#1): {}
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53093//fdab:e16c:a12::2/58017 (DataFrame(stream_id=1, flags=[]): <hex:920bb029010200000000...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53093//fdab:e16c:a12::2/58017 (HeadersFrame(stream_id=3, flags=['END_HEADERS']): exclusive=False, depends_on=0, stream_weight=0, data=None)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG fdab:e16c:a12::1 opening stream 3 for communication on port 58017
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53093//fdab:e16c:a12::2/58017 (DataFrame(stream_id=3, flags=[]): <hex:920bb029010040000000...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::2/58017//fdab:e16c:a12::1/53093 (HeadersFrame(stream_id=5, flags=['END_HEADERS']): exclusive=False, depends_on=0, stream_weight=0, data=None)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG fdab:e16c:a12::2 opening stream 5 for communication on port 53093
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::2/58017//fdab:e16c:a12::1/53093 (DataFrame(stream_id=5, flags=[]): <hex:920bb029010010000000...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::2/58017//fdab:e16c:a12::1/53093 (DataFrame(stream_id=1, flags=[]): <hex:920bb029010100003c02...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#1): {'AssetSize': 24691,
+ 'AssetStreamFD': FileTransferType(transfer_size=18446744073709551615),
+ 'InstallMessageType': 1,
+ 'ProtocolVersion': 1,
+ 'RemoteInstallOptions': {'AIOverride': 1,
+                          'BundleID': 'com.facebook.WebDriverAgentRunner.xctrunner',
+                          'BundleVersion': '1',
+                          'IconDataType': 0,
+                          'Importance': 2,
+                          'InstallMode': 1,
+                          'InstallableType': 0,
+                          'LocalizedName': 'WebDriverAgentRunner-Runner',
+                          'ProfileErrorsFatal': True,
+                          'StashOption': 0},
+ 'RequestType': 1,
+ 'RequestVersion': 1}
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53093//fdab:e16c:a12::2/58017 (HeadersFrame(stream_id=5, flags=['END_HEADERS']): exclusive=False, depends_on=0, stream_weight=0, data=None)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG fdab:e16c:a12::1 opening stream 5 for communication on port 58017
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53093//fdab:e16c:a12::2/58017 (DataFrame(stream_id=5, flags=[]): <hex:920bb029010020000000...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::2/58017//fdab:e16c:a12::1/53093 (DataFrame(stream_id=5, flags=[]): <hex:3d000000504b03041400...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New Data frame fdab:e16c:a12::2->fdab:e16c:a12::1 on HTTP/2 stream 5 TCP port 53093
+00000000: 3D 00 00 00 50 4B 03 04  14 00 00 08 00 00 96 7A  =...PK.........z
+00000010: 15 57 00 00 00 00 00 00  00 00 00 00 00 00 09 00  .W..............
+00000020: 16 00 4D 45 54 41 2D 49  4E 46 2F 53 5A 02 00 ED  ..META-INF/SZ...
+00000030: 41 55 58 0C 00 00 00 00  00 4B 10 E3 64 F5 01 F5  AUX......K..d...
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG ... 6357 bytes
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::2/58017//fdab:e16c:a12::1/53093 (DataFrame(stream_id=5, flags=['END_STREAM']): None)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53093//fdab:e16c:a12::2/58017 (RstStreamFrame(stream_id=5, flags=[]): error_code=5)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53093//fdab:e16c:a12::2/58017 (DataFrame(stream_id=1, flags=[]): <hex:920bb02901010000a000...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#1): {'InstallMessageType': 2,
+ 'OverallProgress': -2.3534373655176374e-185,
+ 'PhaseProgress': 6.2269346e-317,
+ 'ProgressPhase': 1,
+ 'RequestType': 1}
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53093//fdab:e16c:a12::2/58017 (DataFrame(stream_id=1, flags=[]): <hex:920bb02901010000a000...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#1): {'InstallMessageType': 2,
+ 'OverallProgress': 4.667261465646159e-62,
+ 'PhaseProgress': 6.2279465e-317,
+ 'ProgressPhase': 1,
+ 'RequestType': 1}
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53093//fdab:e16c:a12::2/58017 (DataFrame(stream_id=1, flags=[]): <hex:920bb02901010000a000...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#1): {'InstallMessageType': 2,
+ 'OverallProgress': 9.897e-320,
+ 'PhaseProgress': 1.12884e-319,
+ 'ProgressPhase': 1,
+ 'RequestType': 1}
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53093//fdab:e16c:a12::2/58017 (DataFrame(stream_id=1, flags=[]): <hex:920bb02901010000a000...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#1): {'InstallMessageType': 2,
+ 'OverallProgress': 9.897e-320,
+ 'PhaseProgress': 1.12884e-319,
+ 'ProgressPhase': 1,
+ 'RequestType': 1}
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53093//fdab:e16c:a12::2/58017 (DataFrame(stream_id=1, flags=[]): <hex:920bb02901010000a000...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#1): {'InstallMessageType': 2,
+ 'OverallProgress': 1.00236e-319,
+ 'PhaseProgress': 2.561e-320,
+ 'ProgressPhase': 2,
+ 'RequestType': 1}
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53093//fdab:e16c:a12::2/58017 (DataFrame(stream_id=1, flags=[]): <hex:920bb02901010000a000...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#1): {'InstallMessageType': 2,
+ 'OverallProgress': 4.154673e-317,
+ 'PhaseProgress': 5.8497e-320,
+ 'ProgressPhase': 2,
+ 'RequestType': 1}
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53093//fdab:e16c:a12::2/58017 (DataFrame(stream_id=1, flags=[]): <hex:920bb02901010000a000...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#1): {'InstallMessageType': 2,
+ 'OverallProgress': 1.02766e-319,
+ 'PhaseProgress': 6.6086e-320,
+ 'ProgressPhase': 2,
+ 'RequestType': 1}
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53093//fdab:e16c:a12::2/58017 (DataFrame(stream_id=1, flags=[]): <hex:920bb02901010000a000...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#1): {'InstallMessageType': 2,
+ 'OverallProgress': 1.0403e-319,
+ 'PhaseProgress': 7.8734e-320,
+ 'ProgressPhase': 2,
+ 'RequestType': 1}
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53093//fdab:e16c:a12::2/58017 (DataFrame(stream_id=1, flags=[]): <hex:920bb02901010000a000...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#1): {'InstallMessageType': 2,
+ 'OverallProgress': 4.154926e-317,
+ 'PhaseProgress': 4.152776e-317,
+ 'ProgressPhase': 2,
+ 'RequestType': 1}
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53093//fdab:e16c:a12::2/58017 (DataFrame(stream_id=1, flags=[]): <hex:920bb02901010000a000...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#1): {'InstallMessageType': 2,
+ 'OverallProgress': 1.05295e-319,
+ 'PhaseProgress': 8.6323e-320,
+ 'ProgressPhase': 2,
+ 'RequestType': 1}
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53093//fdab:e16c:a12::2/58017 (DataFrame(stream_id=1, flags=[]): <hex:920bb02901010000a000...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#1): {'InstallMessageType': 2,
+ 'OverallProgress': 1.0656e-319,
+ 'PhaseProgress': 9.2647e-320,
+ 'ProgressPhase': 2,
+ 'RequestType': 1}
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53093//fdab:e16c:a12::2/58017 (DataFrame(stream_id=1, flags=[]): <hex:920bb02901010000a000...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#1): {'InstallMessageType': 2,
+ 'OverallProgress': 1.07825e-319,
+ 'PhaseProgress': 9.897e-320,
+ 'ProgressPhase': 2,
+ 'RequestType': 1}
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53093//fdab:e16c:a12::2/58017 (DataFrame(stream_id=1, flags=[]): <hex:920bb02901010000a000...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#1): {'InstallMessageType': 2,
+ 'OverallProgress': 1.0909e-319,
+ 'PhaseProgress': 4.1547996e-317,
+ 'ProgressPhase': 2,
+ 'RequestType': 1}
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53093//fdab:e16c:a12::2/58017 (DataFrame(stream_id=1, flags=[]): <hex:920bb02901010000a000...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#1): {'InstallMessageType': 2,
+ 'OverallProgress': 1.10355e-319,
+ 'PhaseProgress': 1.0656e-319,
+ 'ProgressPhase': 2,
+ 'RequestType': 1}
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53093//fdab:e16c:a12::2/58017 (DataFrame(stream_id=1, flags=[]): <hex:920bb02901010000a000...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#1): {'InstallMessageType': 2,
+ 'OverallProgress': 1.1162e-319,
+ 'PhaseProgress': 4.155432e-317,
+ 'ProgressPhase': 2,
+ 'RequestType': 1}
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53093//fdab:e16c:a12::2/58017 (DataFrame(stream_id=1, flags=[]): <hex:920bb02901010000a000...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#1): {'InstallMessageType': 2,
+ 'OverallProgress': 1.12884e-319,
+ 'PhaseProgress': 1.12884e-319,
+ 'ProgressPhase': 2,
+ 'RequestType': 1}
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53093//fdab:e16c:a12::2/58017 (DataFrame(stream_id=1, flags=[]): <hex:920bb02901010000d801...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#1): {'DBSequence': 1616,
+ 'DBUUID': '8049EB5B-196C-44B0-BB9C-472BCFD4E00A',
+ 'InstallMessageType': 3,
+ 'InstallPath': {'com.apple.CFURL.base': None,
+                 'com.apple.CFURL.magic': UUID('c3853dcc-9776-4114-b6c1-fd9f51944a6d'),
+                 'com.apple.CFURL.string': 'file:///private/var/containers/Bundle/Application/27FEB080-AAE5-4A87-85E8-803F596BB62D/WebDriverAgentRunner-Runner.app/'},
+ 'PersistentIdentifier': b'\x00\x00\x00\x00P\x06\x00\x00\x08\x00\x00\x00'
+                         b'\x80I\xeb[\x19lD\xb0\xbb\x9cG+\xcf\xd4\xe0\n'
+                         b'P\x06\x00\x00\x00\x00\x00\x00',
+ 'RequestType': 1}
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::2/58017//fdab:e16c:a12::1/53093 (RstStreamFrame(stream_id=1, flags=[]): error_code=5)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::2/58017//fdab:e16c:a12::1/53093 (RstStreamFrame(stream_id=3, flags=[]): error_code=5)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53093//fdab:e16c:a12::2/58017 (RstStreamFrame(stream_id=3, flags=[]): error_code=5)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::2/57211//fdab:e16c:a12::1/53132 (DataFrame(stream_id=1, flags=[]): <hex:920bb029010101006c0a...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#1): {'CoreDevice.CoreDeviceDDIProtocolVersion': 0,
+ 'CoreDevice.action': {},
+ 'CoreDevice.coreDeviceVersion': {'components': [346, 0, 0, 0, 0],
+                                  'originalComponentsCount': 1,
+                                  'stringValue': '346'},
+ 'CoreDevice.deviceIdentifier': '2070E331-97DE-429F-8D90-83133BE11FF2',
+ 'CoreDevice.featureIdentifier': 'com.apple.coredevice.feature.launchapplication',
+ 'CoreDevice.input': {'applicationSpecifier': {'bundleIdentifier': {'_0': 'com.facebook.WebDriverAgentRunner.xctrunner'}},
+                      'options': {'arguments': [],
+                                  'environmentVariables': {'CA_ASSERT_MAIN_THREAD_TRANSACTIONS': '0',
+                                                           'CA_DEBUG_TRANSACTIONS': '0',
+                                                           'DYLD_FRAMEWORK_PATH': '/System/Developer/Library/Frameworks',
+                                                           'DYLD_INSERT_LIBRARIES': '/usr/lib/libMainThreadChecker.dylib',
+                                                           'DYLD_LIBRARY_PATH': '/System/Developer/usr/lib',
+                                                           'LLVM_PROFILE_FILE': '/dev/null',
+                                                           'MJPEG_SERVER_PORT': '',
+                                                           'NSUnbufferedIO': 'YES',
+                                                           'OS_ACTIVITY_DT_MODE': 'YES',
+                                                           'RUN_DESTINATION_DEVICE_ECID': '5076519073366046',
+                                                           'RUN_DESTINATION_DEVICE_NAME': 'CN090',
+                                                           'RUN_DESTINATION_DEVICE_PLATFORM_IDENTIFIER': 'com.apple.platform.iphoneos',
+                                                           'RUN_DESTINATION_DEVICE_UDID': '00008110-001209113410401E',
+                                                           'SQLITE_ENABLE_THREAD_ASSERTIONS': '1',
+                                                           'SWIFTUI_VIEW_DEBUG': '287',
+                                                           'UPGRADE_TIMESTAMP': '',
+                                                           'USE_PORT': '',
+                                                           'WDA_PRODUCT_BUNDLE_IDENTIFIER': '',
+                                                           'XCTestBundlePath': 'PlugIns/WebDriverAgentRunner.xctest',
+                                                           'XCTestConfigurationFilePath': '',
+                                                           'XCTestManagerVariant': 'DDI',
+                                                           'XCTestSessionIdentifier': '3F6364CA-F2CA-49C5-8973-4C2394AE4E4C',
+                                                           '__XPC_LLVM_PROFILE_FILE': '/dev/null'},
+                                  'installationResult': {'_persistentIdentifier': b'\x00\x00\x00\x00'
+                                                                                  b'P\x06\x00\x00'
+                                                                                  b'\x08\x00\x00\x00'
+                                                                                  b'\x80I\xeb['
+                                                                                  b'\x19lD\xb0'
+                                                                                  b'\xbb\x9cG+'
+                                                                                  b'\xcf\xd4\xe0\n'
+                                                                                  b'P\x06\x00\x00'
+                                                                                  b'\x00\x00\x00\x00',
+                                                         'applicationBundleId': 'com.facebook.WebDriverAgentRunner.xctrunner',
+                                                         'databaseSequenceNumber': 1616,
+                                                         'databaseUUID': UUID('8049eb5b-196c-44b0-bb9c-472bcfd4e00a'),
+                                                         'installationURL': {'relative': 'file:///private/var/containers/Bundle/Application/27FEB080-AAE5-4A87-85E8-803F596BB62D/WebDriverAgentRunner-Runner.app/'}},
+                                  'platformSpecificOptions': b'bplist00'
+                                                             b'\xd1\x01\x02_'
+                                                             b'\x10\x13__Acti'
+                                                             b'vateSuspende'
+                                                             b'd\t\x08\x0b'
+                                                             b'!\x00\x00\x00'
+                                                             b'\x00\x00\x00\x01'
+                                                             b'\x01\x00\x00\x00'
+                                                             b'\x00\x00\x00\x00'
+                                                             b'\x03\x00\x00\x00'
+                                                             b'\x00\x00\x00\x00'
+                                                             b'\x00\x00\x00\x00'
+                                                             b'\x00\x00\x00\x00'
+                                                             b'"',
+                                  'standardIOUsesPseudoterminals': True,
+                                  'startStopped': True,
+                                  'terminateExisting': True,
+                                  'user': {'active': True},
+                                  'workingDirectory': None},
+                      'standardIOIdentifiers': {'standardError': UUID('bdaa75d0-223a-4339-8115-f198d6c50085'),
+                                                'standardInput': UUID('bdaa75d0-223a-4339-8115-f198d6c50085'),
+                                                'standardOutput': UUID('bdaa75d0-223a-4339-8115-f198d6c50085')}},
+ 'CoreDevice.invocationIdentifier': 'A4557A75-BE9F-4BB8-9F46-23DD32DA5300'}
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53132//fdab:e16c:a12::2/57211 (DataFrame(stream_id=3, flags=[]): <hex:920bb02901010200d401...>)
+2023-08-21 15:20:43 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#3): {'CoreDevice.output': {'processToken': {'auditToken': [4294967295,
+                                                       501,
+                                                       501,
+                                                       501,
+                                                       501,
+                                                       2762,
+                                                       0,
+                                                       8023],
+                                        'executableURL': {'relative': 'file:///private/var/containers/Bundle/Application/27FEB080-AAE5-4A87-85E8-803F596BB62D/WebDriverAgentRunner-Runner.app/WebDriverAgentRunner-Runner'},
+                                        'processIdentifier': 2762,
+                                        'processIdentifierVersion': 8023}}}
+2023-08-21 15:20:44 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/53138//fdab:e16c:a12::2/57143 (ExtensionFrame(stream_id=1064856940, flags=[]): type=68, flag_byte=60, body=<hex:20>)
+2023-08-21 15:20:58 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::2/57138//fdab:e16c:a12::1/61877 (DataFrame(stream_id=1, flags=[]): <hex:920bb029010101005000...>)
+2023-08-21 15:20:58 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#1): {'MessageType': 'Heartbeat', 'SequenceNumber': 170}
+2023-08-21 15:20:58 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/61877//fdab:e16c:a12::2/57138 (DataFrame(stream_id=3, flags=[]): <hex:920bb029010102003000...>)
+2023-08-21 15:20:58 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#3): {'SequenceNumber': 170}
+2023-08-21 15:21:28 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::2/57138//fdab:e16c:a12::1/61877 (DataFrame(stream_id=1, flags=[]): <hex:920bb029010101005000...>)
+2023-08-21 15:21:28 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#1): {'MessageType': 'Heartbeat', 'SequenceNumber': 171}
+2023-08-21 15:21:28 lixiaolo.apj.softwaregrp.net root[27733] DEBUG New HTTP/2 frame: fdab:e16c:a12::1/61877//fdab:e16c:a12::2/57138 (DataFrame(stream_id=3, flags=[]): <hex:920bb029010102003000...>)
+2023-08-21 15:21:28 lixiaolo.apj.softwaregrp.net root[27733] INFO As Python Object (#3): {'SequenceNumber': 171}
