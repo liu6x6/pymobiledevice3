@@ -123,6 +123,12 @@ class XpcUInt64Type(int):
 class FileTransferType:
     transfer_size: int
 
+@dataclasses.dataclass
+class XpcFileTransferType:
+    def __init__(self, data, msg_id):
+        self.data = data
+        self.msg_id = msg_id
+
 
 def _decode_xpc_dictionary(xpc_object) -> Mapping:
     if xpc_object.data.count == 0:
@@ -172,6 +178,16 @@ def _decode_xpc_date(xpc_object) -> datetime:
 def _decode_xpc_file_transfer(xpc_object) -> FileTransferType:
     return FileTransferType(transfer_size=_decode_xpc_dictionary(xpc_object.data.data)['s'])
 
+def _decode_xpc_file_transfer1(xpc_object) -> Mapping:
+    # Extract 'msg_id' and 'data' fields from the XpcFileTransfer structure
+    msg_id = xpc_object.data.msg_id
+    data = decode_xpc_object(xpc_object.data.data)
+    # Return as a dictionary or similar structure
+    return {
+        'msg_id': msg_id,
+        'data': data
+    }
+
 
 def _decode_xpc_double(xpc_object) -> float:
     return xpc_object.data
@@ -192,7 +208,7 @@ def decode_xpc_object(xpc_object) -> Any:
         XpcMessageType.STRING: _decode_xpc_string,
         XpcMessageType.DATA: _decode_xpc_data,
         XpcMessageType.DATE: _decode_xpc_date,
-        XpcMessageType.FILE_TRANSFER: _decode_xpc_file_transfer,
+        XpcMessageType.FILE_TRANSFER: _decode_xpc_file_transfer1,
         XpcMessageType.DOUBLE: _decode_xpc_double,
         XpcMessageType.NULL: _decode_xpc_null,
     }
@@ -285,6 +301,21 @@ def _build_xpc_int64(payload: XpcInt64Type) -> Mapping:
         'data': payload,
     }
 
+def _build_xpc_file_transfer(payload: XpcFileTransferType) -> Mapping:
+    # Extract 'msg_id' and 'data' fields from the payload
+    msg_id = payload.msg_id
+    data = _build_xpc_object(payload.data)
+
+    # Construct and return the XpcFileTransfer structure
+    return {
+        'type': XpcMessageType.FILE_TRANSFER,
+        'data': {
+            'msg_id': msg_id,
+            'data': data
+        }
+    }
+
+
 
 def _build_xpc_object(payload: Any) -> Mapping:
     if payload is None:
@@ -300,6 +331,7 @@ def _build_xpc_object(payload: Any) -> Mapping:
         uuid.UUID: _build_xpc_uuid,
         'XpcUInt64Type': _build_xpc_uint64,
         'XpcInt64Type': _build_xpc_int64,
+         XpcFileTransferType: _build_xpc_file_transfer,
     }
     builder = payload_builders.get(type(payload), payload_builders.get(type(payload).__name__))
     if builder is None:

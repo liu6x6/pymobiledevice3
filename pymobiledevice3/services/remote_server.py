@@ -14,6 +14,7 @@ from pygments import formatters, highlight, lexers
 from pymobiledevice3.exceptions import DvtException, UnrecognizedSelectorError
 from pymobiledevice3.lockdown_service_provider import LockdownServiceProvider
 from pymobiledevice3.services.lockdown_service import LockdownService
+import uuid
 
 SHELL_USAGE = '''
 # This shell allows you to send messages to the DVTSecureSocketProxy and receive answers easily.
@@ -120,6 +121,27 @@ class NSError:
         if user_info.get('NSLocalizedDescription', '').endswith(' - it does not respond to the selector'):
             raise UnrecognizedSelectorError(user_info)
         raise DvtException(archive_obj.decode('NSUserInfo'))
+    
+
+class XCTestConfigurationArchive:
+    @staticmethod
+    def decode_archive(archive_obj):
+        return archive_obj.decode('multiDevicePlatformVersionMap')
+
+class XCTCapabilitiesArchive(dict):
+    @staticmethod
+    def decode_archive(archive_obj):
+        return archive_obj.decode('capabilities-dictionary')
+    
+class NSUUID(uuid.UUID):
+    @staticmethod
+    def decode_archive(archive_obj):
+        my_uuid = uuid.UUID(bytes=archive_obj.object["NS.uuidbytes"])
+        return my_uuid
+    
+    @staticmethod
+    def encode_archive(objects, archive):
+        archive._archive_obj["NS.uuidbytes"] = objects.bytes
 
 
 archiver.update_class_map({'DTSysmonTapMessage': DTTapMessage,
@@ -129,7 +151,9 @@ archiver.update_class_map({'DTSysmonTapMessage': DTTapMessage,
                            'DTActivityTraceTapMessage': DTTapMessage,
                            'DTTapMessage': DTTapMessage,
                            'NSNull': NSNull,
-                           'NSError': NSError})
+                           'NSError': NSError,
+                            'NSUUID': NSUUID,
+                           'XCTCapabilities': XCTCapabilitiesArchive,})
 
 
 class Channel(int):
@@ -271,7 +295,7 @@ class RemoteServer(LockdownService):
         self.supported_identifiers = aux[0].value
 
     def make_channel(self, identifier) -> Channel:
-        assert identifier in self.supported_identifiers
+        # assert identifier in self.supported_identifiers
         if identifier in self.channel_cache:
             return self.channel_cache[identifier]
 

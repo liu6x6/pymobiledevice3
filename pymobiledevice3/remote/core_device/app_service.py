@@ -103,3 +103,84 @@ class AppServiceService(CoreDeviceService):
             'allowPlaceholder': allow_placeholder,
             'bundleIdentifier': bundle_identifier
         })
+    
+    def launch_application6(self) -> Mapping:
+        input1 =  {
+                    "applicationSpecifier": {
+                        "bundleIdentifier": {
+                            "_0": "com.apple.test.WebDriverAgentRunner-Runner"
+                        }
+                    },
+                    "options": {
+                        "arguments": [],
+                        "environmentVariables": {
+                            "CA_ASSERT_MAIN_THREAD_TRANSACTIONS": "0",
+                            "CA_DEBUG_TRANSACTIONS": "0",
+                            "DYLD_FRAMEWORK_PATH": "/System/Developer/Library/Frameworks",
+                            "DYLD_LIBRARY_PATH": "/System/Developer/usr/lib",
+                            "LLVM_PROFILE_FILE": "/dev/null",
+                            "NSUnbufferedIO": "YES",
+                            "RUN_DESTINATION_DEVICE_ECID": "5076519073366046",
+                            "RUN_DESTINATION_DEVICE_NAME": "CN090",
+                            "RUN_DESTINATION_DEVICE_PLATFORM_IDENTIFIER": "com.apple.platform.iphoneos",
+                            "RUN_DESTINATION_DEVICE_UDID": "00008110-001209113410401E",
+                            "XCTestBundlePath": "PlugIns/WebDriverAgentRunner.xctest",
+                            "XCTestConfigurationFilePath": "",
+                            "XCTestManagerVariant": "DDI",
+                            "XCTestSessionIdentifier": "2D9F56CF-F53A-4638-B527-B4864F56BDB1",
+                            "__XPC_LLVM_PROFILE_FILE": "/dev/null"
+                        },
+                        "installationResult": {
+                            "_persistentIdentifier": ( b'\x00\x00\x00\x00'
+                                                        b'\x08\x00\x00\x00'
+                                                        b'\r-SE'
+                                                        b'b\xf5A\x08'
+                                                        b'\x95"^ '
+                                                        b'\x9b\xd7\x85\xfc'
+                                                        b'8\x05\x00\x00'
+                                                        b'\x00\x00\x00\x00'),
+                            "applicationBundleId": "com.apple.test.WebDriverAgentRunner-Runner",
+                            "databaseSequenceNumber": XpcUInt64Type(2648),
+                            "databaseUUID": uuid.UUID(hex="62cc4acd-f50b-455e-9c3b-cffc8254609f".replace("-","")),
+                            "installationURL": {
+                                "relative": "file:///private/var/containers/Bundle/Application/B8ECB7D6-DF9B-4B44-A812-FEE08D53BED5/WebDriverAgentRunner-Runner.app/"
+                            }
+                        },
+                        "platformSpecificOptions": 
+                                                    (b'bplist00'
+                                                    b'\xd1\x01\x02_'
+                                                    b'\x10\x13__Acti'
+                                                    b'vateSuspende'
+                                                    b'd\t\x08\x0b'
+                                                    b'!\x00\x00\x00'
+                                                    b'\x00\x00\x00\x01'
+                                                    b'\x01\x00\x00\x00'
+                                                    b'\x00\x00\x00\x00'
+                                                    b'\x03\x00\x00\x00'
+                                                    b'\x00\x00\x00\x00'
+                                                    b'\x00\x00\x00\x00'
+                                                    b'\x00\x00\x00\x00'
+                                                    b'"'),
+                        "standardIOUsesPseudoterminals": True,
+                        "startStopped": True,
+                        "terminateExisting": True,
+                        "terminationHandler": {
+                            "sideChannel": uuid.UUID(hex="2f196902-658f-4e89-b8a8-35db1024dca0".replace("-","")),
+                        },
+                        "user": {
+                            "active": True
+                        },
+                        "workingDirectory": None
+                    },
+                    "standardIOIdentifiers": {
+                        "standardError": uuid.UUID(hex="55a2b578-db25-4887-b5eb-2abc17cc9f90".replace("-","")),
+                        "standardInput": uuid.UUID(hex="55a2b578-db25-4887-b5eb-2abc17cc9f90".replace("-","")),
+                        "standardOutput": uuid.UUID(hex="55a2b578-db25-4887-b5eb-2abc17cc9f90".replace("-","")),
+                    }
+                }
+
+        return self.invoke('com.apple.coredevice.feature.launchapplication', input1)  
+
+
+    def launch_application_raw(self,data: bytes) -> Mapping:
+        return self.invoke_raw(data)

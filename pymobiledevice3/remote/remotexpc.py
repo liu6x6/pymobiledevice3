@@ -58,6 +58,10 @@ class RemoteXPCConnection:
             data, message_id=self.next_message_id[ROOT_CHANNEL], wanting_reply=wanting_reply)
         self.sock.sendall(DataFrame(stream_id=ROOT_CHANNEL, data=xpc_wrapper).serialize())
 
+# send raw data, load from the disk
+    def send_raw_request(self, data: bytes, wanting_reply: bool = False) -> None:
+        self.sock.sendall(DataFrame(stream_id=ROOT_CHANNEL, data=data).serialize())
+
     def iter_file_chunks(self, total_size: int, file_idx: int = 0) -> Generator[bytes, None, None]:
         stream_id = (file_idx + 1) * 2
         self._open_channel(stream_id, XpcFlags.FILE_TX_STREAM_RESPONSE)
@@ -103,6 +107,10 @@ class RemoteXPCConnection:
         self.send_request(data, wanting_reply=True)
         return self.receive_response()
 
+    def send_raw_receive_request(self, data: bytes):
+        self.send_raw_request(data, wanting_reply=True)
+        return self.receive_response()
+    
     def shell(self) -> None:
         IPython.embed(
             header=highlight(SHELL_USAGE, lexers.PythonLexer(),

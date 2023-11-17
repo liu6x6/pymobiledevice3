@@ -32,3 +32,11 @@ class CoreDeviceService(RemoteService):
         if output is None:
             raise CoreDeviceError(f'Failed to invoke: {feature_identifier}. Got error: {response}')
         return output
+    
+
+    def invoke_raw(self, data: bytes) -> Any:
+        response = self.service.send_raw_receive_request(data)
+        output = response.get('CoreDevice.output')
+        if output is None:
+            raise CoreDeviceError(f'Failed to invoke_raw . Got error: {response}')
+        return output
