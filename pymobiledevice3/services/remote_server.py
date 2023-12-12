@@ -1,3 +1,4 @@
+import os
 import io
 import plistlib
 import typing
@@ -7,6 +8,7 @@ from queue import Empty, Queue
 
 import IPython
 from bpylist2 import archiver
+from bpylist2.archiver import ArchivedObject
 from construct import Adapter, Const, Default, GreedyBytes, GreedyRange, Int16ul, Int32sl, Int32ul, Int64ul, Prefixed, \
     Select, Struct, Switch, this
 from pygments import formatters, highlight, lexers
@@ -15,7 +17,7 @@ from pymobiledevice3.exceptions import DvtException, UnrecognizedSelectorError
 from pymobiledevice3.lockdown_service_provider import LockdownServiceProvider
 from pymobiledevice3.services.lockdown_service import LockdownService
 import uuid
-
+import pprint
 SHELL_USAGE = '''
 # This shell allows you to send messages to the DVTSecureSocketProxy and receive answers easily.
 # Generally speaking, each channel represents a group of actions.
@@ -102,10 +104,96 @@ class MessageAux:
         return message_aux_t_struct.build(dict(aux=self.values))
 
 
+class XCTestConfiguration():
+    @staticmethod
+    def decode_archive(archive_obj):
+        metadata_dict = {}
+        for key, value in archive_obj.object.items():
+            try:
+                if key == "$class":
+                    continue
+                decoded_value = archive_obj.decode(key)
+                metadata_dict[key] = decoded_value
+            except Exception as e:
+                print(e)
+                pass
+        return metadata_dict
+
+class XCTRepetitionPolicy():
+    @staticmethod
+    def decode_archive(archive_obj):
+        metadata_dict = {}
+        for key, value in archive_obj.object.items():
+            try:
+                if key == "$class":
+                    continue
+                decoded_value = archive_obj.decode(key)
+                metadata_dict[key] = decoded_value
+            except Exception as e:
+                print(e)
+                pass
+        return metadata_dict
+    
+class XCTRuntimeIssueDetectionPolicy():
+    @staticmethod
+    def decode_archive(archive_obj):
+        metadata_dict = {}
+        for key, value in archive_obj.object.items():
+            try:
+                if key == "$class":
+                    continue
+                decoded_value = archive_obj.decode(key)
+                metadata_dict[key] = decoded_value
+            except Exception as e:
+                print(e)
+                pass
+        return metadata_dict
+
+class XCTCapabilities():
+    @staticmethod
+    def decode_archive(archive_obj):
+        # obj = archive_obj.decode('capabilities-dictionary')
+        # return obj
+        metadata_dict = {}
+        for key, value in archive_obj.object.items():
+            try:
+                if key == "$class":
+                    continue
+                decoded_value = archive_obj.decode(key)
+                metadata_dict[key] = decoded_value
+            except Exception as e:
+                print(e)
+                pass
+        return metadata_dict
+    
 class DTTapMessage:
     @staticmethod
     def decode_archive(archive_obj):
         return archive_obj.decode('DTTapMessagePlist')
+
+class XCTAttachmentFutureMetadata:
+    @staticmethod
+    def decode_archive(archive_obj):
+        metadata_dict = {}
+        for key, value in archive_obj.object.items():
+            try:
+                if key == "$class":
+                    continue
+                decoded_value = archive_obj.decode(key)
+                metadata_dict[key] = decoded_value
+            except Exception as e:
+                print(e)
+                pass
+        return metadata_dict
+
+class NSURL:
+    @staticmethod
+    def decode_archive(archive_obj):
+        base_url = archive_obj.decode('NS.base')
+        relative_url = archive_obj.decode('NS.relative')
+        # Combine the base and relative URLs
+        url = (base_url or '') + (relative_url or '')
+        return url
 
 
 class NSNull:
@@ -119,19 +207,8 @@ class NSError:
     def decode_archive(archive_obj):
         user_info = archive_obj.decode('NSUserInfo')
         if user_info.get('NSLocalizedDescription', '').endswith(' - it does not respond to the selector'):
-            raise UnrecognizedSelectorError(user_info)
-        raise DvtException(archive_obj.decode('NSUserInfo'))
-    
-
-class XCTestConfigurationArchive:
-    @staticmethod
-    def decode_archive(archive_obj):
-        return archive_obj.decode('multiDevicePlatformVersionMap')
-
-class XCTCapabilitiesArchive(dict):
-    @staticmethod
-    def decode_archive(archive_obj):
-        return archive_obj.decode('capabilities-dictionary')
+            raise Exception(user_info)
+        raise Exception(archive_obj.decode('NSUserInfo'))
     
 class NSUUID(uuid.UUID):
     @staticmethod
@@ -144,6 +221,7 @@ class NSUUID(uuid.UUID):
         archive._archive_obj["NS.uuidbytes"] = objects.bytes
 
 
+
 archiver.update_class_map({'DTSysmonTapMessage': DTTapMessage,
                            'DTTapHeartbeatMessage': DTTapMessage,
                            'DTTapStatusMessage': DTTapMessage,
@@ -152,8 +230,15 @@ archiver.update_class_map({'DTSysmonTapMessage': DTTapMessage,
                            'DTTapMessage': DTTapMessage,
                            'NSNull': NSNull,
                            'NSError': NSError,
-                            'NSUUID': NSUUID,
-                           'XCTCapabilities': XCTCapabilitiesArchive,})
+                           'NSUUID': NSUUID,
+                           'NSURL': NSURL,
+                           'XCTCapabilities': XCTCapabilities,
+                           "NSSet": set,
+                           'XCTAttachmentFutureMetadata': XCTAttachmentFutureMetadata,
+                           'XCTestConfiguration': XCTestConfiguration,
+                           'XCTRepetitionPolicy': XCTRepetitionPolicy,
+                           'XCTRuntimeIssueDetectionPolicy': XCTRuntimeIssueDetectionPolicy,
+                           })
 
 
 class Channel(int):
@@ -285,7 +370,7 @@ class RemoteServer(LockdownService):
 
     def perform_handshake(self):
         args = MessageAux()
-        args.append_obj({'com.apple.private.DTXBlockCompression': 0, 'com.apple.private.DTXConnection': 1})
+        args.append_obj({'com.apple.private.DTXBlockCompression': 2, 'com.apple.private.DTXConnection': 1})
         self.send_message(0, '_notifyOfPublishedCapabilities:', args, expects_reply=False)
         ret, aux = self.recv_plist()
         if ret != '_notifyOfPublishedCapabilities:':
@@ -316,8 +401,8 @@ class RemoteServer(LockdownService):
         aux = bytes(args) if args is not None else b''
         sel = archiver.archive(selector) if selector is not None else b''
         flags = self.INSTRUMENTS_MESSAGE_TYPE
-        if expects_reply:
-            flags |= self.EXPECTS_REPLY_MASK
+        # if expects_reply:
+        #     flags |= self.EXPECTS_REPLY_MASK
         pheader = dtx_message_payload_header_struct.build(dict(flags=flags, auxiliaryLength=len(aux),
                                                                totalLength=len(aux) + len(sel)))
         mheader = dtx_message_header_struct.build(dict(
@@ -330,7 +415,18 @@ class RemoteServer(LockdownService):
             channelCode=channel,
             expectsReply=int(expects_reply)
         ))
+        print()
+        print("sendMessage: ")
+        print("selector: ", selector)
+        print("aux: ", None if args is None else args.values)
+        print("flags: ", flags)
+        print()
         msg = mheader + pheader + aux + sel
+        if selector == "_IDE_collectNewCrashReportsInDirectories:matchingProcessNames:":
+            name = "/Users/isan/session.bin"
+            with open(name, 'wb') as file:
+                file.write(msg)
+                print("write _IDE_initiateSessionWithIdentifier:capabilities message to: session.bin")
         self.service.sendall(msg)
 
     def recv_plist(self, channel: int = BROADCAST_CHANNEL):
@@ -343,6 +439,9 @@ class RemoteServer(LockdownService):
                 raise e
             except plistlib.InvalidFileException:
                 self.logger.warning(f'got an invalid plist: {data[:40]}')
+        print("recv_plist: ")
+        print("data: ", data)
+        print("aux: ", aux)
         return data, aux
 
     def recv_message(self, channel: int = BROADCAST_CHANNEL):
@@ -351,6 +450,7 @@ class RemoteServer(LockdownService):
 
         compression = (pheader.flags & 0xFF000) >> 12
         if compression:
+            print("NotImplementedError('Compressed')")
             raise NotImplementedError('Compressed')
 
         if pheader.auxiliaryLength:
@@ -372,6 +472,7 @@ class RemoteServer(LockdownService):
                 # until the waited message queue has at least one message
                 data = self.service.recvall(dtx_message_header_struct.sizeof())
                 mheader = dtx_message_header_struct.parse(data)
+                print("mheader: ", mheader)
 
                 # treat both as the negative and positive representation of the channel code in the response
                 # the same when performing fragmentation
@@ -416,4 +517,282 @@ class Tap:
 
     def __iter__(self):
         while True:
-            yield from self.channel.receive_plist()
+            for result in self.channel.receive_plist():
+                yield result
+
+from construct import ConstError, StreamError
+import pprint
+pp = pprint.PrettyPrinter()
+def check_outbound_data():
+    index = 0
+    while index <= 1064:
+        # direction = 'inbound'
+        direction = 'outbound'
+        name = '/Users/isan/runtest/packets/{}_{}.bin'.format(str(index).zfill(4), direction)
+        try:
+            with open(name, 'rb') as f:
+                print(name)
+                data = f.read()
+                # load dtx_message_header_struct.sizeof() bytes from the data
+                mheader = dtx_message_header_struct.parse(data)
+                received_channel_code = abs(mheader.channelCode)
+                print(received_channel_code)
+                # print(fileName, '  succeed')
+        except Exception as e:
+            # print(e)
+            # print(fileName, '  failed')
+            pass
+        index = index + 1
+
+class ParseDTXHelper():
+    previous_data = b''
+    channelFragmenter = None
+
+    out_previous_data = b''
+    out_channelFragmenter = None
+    inbounding = True
+    def process_data(self, unitData):
+        try:
+            if len(unitData) < 32:
+                print("data 不完整")
+                self.previous_data = unitData
+                return
+            # read dtx_message_header_struct.sizeof() data from the unitData
+            headerData = unitData[:dtx_message_header_struct.sizeof()]
+            mheader = dtx_message_header_struct.parse(headerData)
+            print("mheader: ", mheader)
+            if mheader.fragmentCount > 1 and mheader.fragmentId == 0:
+                # when reading multiple message fragments, the first fragment contains only a message header
+                print("mheader.fragmentCount > 1 and mheader.fragmentId == 0")
+                return
+            # read mheader.length bytes behind the header from the unitData
+            fdata = unitData[dtx_message_header_struct.sizeof():dtx_message_header_struct.sizeof()+mheader.length]
+            print("fdata: ", len(fdata))
+            if len(fdata) != mheader.length:
+                print("data 不完整")
+                self.previous_data = unitData
+                return
+
+            chanelFra = self.channelFragmenter if self.channelFragmenter else ChannelFragmenter()
+            chanelFra.add_fragment(mheader, fdata)
+            stream = io.BytesIO(chanelFra.get())
+            pheader = dtx_message_payload_header_struct.parse_stream(stream)
+            print("pheader: ", pheader)
+            compression = (pheader.flags & 0xFF000) >> 12
+            if compression:
+                print("NotImplementedError('Compressed')")
+                # raise NotImplementedError('Compressed')
+
+            if pheader.auxiliaryLength:
+                aux_struct= message_aux_t_struct.parse_stream(stream)
+                aux = aux_struct.aux
+            else:
+                aux = None
+            
+            print("aux: ")
+            pp.pprint(aux)
+            obj_size = pheader.totalLength - pheader.auxiliaryLength
+            data = stream.read(obj_size) if obj_size else None
+            
+            if data is not None:
+                if len(data) != obj_size:
+                    print("data 不完整")
+                    self.previous_data = unitData
+                    return
+                try:
+                    data = archiver.unarchive(data)
+                except archiver.MissingClassMapping as e:
+                    print("archiver.MissingClassMapping")
+                    result = plistlib.loads(data)
+                    print("result: ", result)
+                    print(e)
+                    # raise e
+                except plistlib.InvalidFileException:
+                    print(f'got an invalid plist: {data[:40]}')
+            print("data:", data)
+            self.previous_data = b''
+            # check if there is any remaining data in unitData
+            if len(unitData) > dtx_message_header_struct.sizeof()+mheader.length:
+                remaining_data = unitData[dtx_message_header_struct.sizeof()+mheader.length:]
+                print()
+                print("there is remaining data: {} to process".format(len(remaining_data)))
+                self.process_data(remaining_data)
+        except ConstError:
+            print("不认识的data")
+        except Empty:
+            print(len(unitData))
+            print(len(self.previous_data))
+            print(dtx_message_header_struct.sizeof())
+            print(mheader.length)
+            self.previous_data = unitData[dtx_message_header_struct.sizeof()+mheader.length:]
+            print(len(self.previous_data))
+            self.channelFragmenter = chanelFra
+            print("Empty")
+            return
+        except StreamError:
+            print("data 不完整")
+            self.previous_data = unitData
+            return
+        
+
+    def process_out_data(self, unitData):
+        try:
+            if len(unitData) < 32:
+                print("data 不完整")
+                self.out_previous_data = unitData
+                return
+            # read dtx_message_header_struct.sizeof() data from the unitData
+            headerData = unitData[:dtx_message_header_struct.sizeof()]
+            mheader = dtx_message_header_struct.parse(headerData)
+            print("mheader: ", mheader)
+            if mheader.fragmentCount > 1 and mheader.fragmentId == 0:
+                # when reading multiple message fragments, the first fragment contains only a message header
+                print("mheader.fragmentCount > 1 and mheader.fragmentId == 0")
+                return
+            # read mheader.length bytes behind the header from the unitData
+            fdata = unitData[dtx_message_header_struct.sizeof():dtx_message_header_struct.sizeof()+mheader.length]
+            print("fdata: ", len(fdata))
+            if len(fdata) != mheader.length:
+                print("data 不完整")
+                self.out_previous_data = unitData
+                return
+
+            chanelFra = self.out_channelFragmenter if self.out_channelFragmenter else ChannelFragmenter()
+            chanelFra.add_fragment(mheader, fdata)
+            stream = io.BytesIO(chanelFra.get())
+            pheader = dtx_message_payload_header_struct.parse_stream(stream)
+            print("pheader: ", pheader)
+            compression = (pheader.flags & 0xFF000) >> 12
+            if compression:
+                print("NotImplementedError('Compressed')")
+                # raise NotImplementedError('Compressed')
+
+            if pheader.auxiliaryLength:
+                aux_struct= message_aux_t_struct.parse_stream(stream)
+                aux = aux_struct.aux
+            else:
+                aux = None
+            print("aux: ")
+            pp.pprint(aux)
+            obj_size = pheader.totalLength - pheader.auxiliaryLength
+            data = stream.read(obj_size) if obj_size else None
+            
+            if data is not None:
+                if len(data) != obj_size:
+                    print("data 不完整")
+                    self.out_previous_data = unitData
+                    return
+                try:
+                    data = archiver.unarchive(data)
+                except archiver.MissingClassMapping as e:
+                    print("archiver.MissingClassMapping")
+                    result = plistlib.loads(data)
+                    print("result: ", result)
+                    print(e)
+                    # raise e
+                except plistlib.InvalidFileException:
+                    print(f'got an invalid plist: {data[:40]}')
+            print("data:", data)
+            self.out_previous_data = b''
+            # check if there is any remaining data in unitData
+            if len(unitData) > dtx_message_header_struct.sizeof()+mheader.length:
+                remaining_data = unitData[dtx_message_header_struct.sizeof()+mheader.length:]
+                print()
+                print("there is remaining data: {} to process".format(len(remaining_data)))
+                self.process_out_data(remaining_data)
+        except ConstError:
+            print("不认识的data")
+        except Empty:
+            print(len(unitData))
+            print(len(self.out_previous_data))
+            print(dtx_message_header_struct.sizeof())
+            print(mheader.length)
+            self.out_previous_data = unitData[dtx_message_header_struct.sizeof()+mheader.length:]
+            print(len(self.out_previous_data))
+            self.out_channelFragmenter = chanelFra
+            print("Empty")
+            return
+        except StreamError:
+            print("data 不完整")
+            self.out_previous_data = unitData
+            return
+
+
+    def parse_single_data(self, path):
+        try:
+            self.inbounding = ("inbound" in path)
+            old_data = self.previous_data if self.inbounding else self.out_previous_data
+            with open(path, 'rb') as f:
+                fileData = f.read()
+                unitData = old_data + fileData
+                print(path, len(fileData))
+                print("previous_data: ", len(old_data))
+                print("unitData: ", len(unitData))
+                if self.inbounding:
+                    self.process_data(unitData)
+                else:
+                    self.process_out_data(unitData)
+        except Exception as e:
+            # pass
+            print(e)
+            print(path, '  failed')
+
+
+def lookfor_header(path):
+    with open(path, 'rb') as f:
+        headerSize = dtx_message_header_struct.sizeof()
+        fileData = f.read()
+        fileLength = len(fileData)
+        startIndex = 0
+        while startIndex <= fileLength - headerSize + 1:
+            print(startIndex)
+            try:
+                headerData = fileData[startIndex:startIndex+headerSize]
+                mheader = dtx_message_header_struct.parse(headerData)
+                print(mheader)
+                break
+            except Exception as e:
+                pass
+            startIndex += 1
+
+def parse_plist_bin(path):
+    with open(path, 'rb') as f:
+        data = f.read()
+        try:
+            data = archiver.unarchive(data)
+            print("data:", data)
+        except archiver.MissingClassMapping as e:
+            print("111111111111")
+            result = plistlib.loads(data)
+            print(result)
+            raise e
+        except plistlib.InvalidFileException:
+            print(f'got an invalid plist: {data[:40]}')
+
+def parseXCTestConfiguration():
+    name = '/Users/isan/XCTestConfiguration.bin'
+    with open(name, 'rb') as file:
+        data = file.read()
+        data = archiver.unarchive(data)
+
+if __name__ == '__main__':
+    helper = ParseDTXHelper()
+    index = 1
+    while index <= 263:
+        directions = ['inbound', 'outbound']
+        for direction in directions:
+            path = '/Users/isan/runtest/xcode_1117_部分安装_62/dt.testmanagerd.remote_50705/{}_{}.bin'.format(str(index).zfill(4), direction)
+            if os.path.isfile(path):
+                print()
+                print()
+                helper.parse_single_data(path)
+                break
+        index += 1
+
+# 还有问题的message
+# 1.
+# index = 226
+# while index <= 227:
+#     direction = 'inbound'
+#     # direction = 'outbound'
+#     path = '/Users/isan/runtest/packets_1023/dt.testmanagerd.remote_51725/{}_{}.bin'.format(str(index).zfill(4), direction)

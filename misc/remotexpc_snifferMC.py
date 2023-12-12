@@ -7,7 +7,7 @@ import coloredlogs
 from construct import ConstError, StreamError
 from hexdump import hexdump
 from hyperframe.frame import DataFrame, Frame, GoAwayFrame, HeadersFrame
-from scapy.layers.inet import IP, TCP
+from scapy.layers.inet import IP, TCP,UDP
 from scapy.layers.inet6 import IPv6
 from scapy.packet import Packet
 from scapy.sendrecv import sniff
@@ -16,13 +16,31 @@ from scapy.all import get_if_list, get_working_if, show_interfaces
 from pymobiledevice3.remote.core_device_tunnel_service import PairingDataComponentTLVBuf
 from pymobiledevice3.remote.remotexpc import HTTP2_MAGIC
 from pymobiledevice3.remote.xpc_message import XpcWrapper, decode_xpc_object
+from pymobiledevice3.remote.remote_service_discovery import RemoteServiceDiscoveryService
+from pymobiledevice3.services.remote_server import ParseDTXHelper
+from pymobiledevice3 import ParsePlistHelper
+
 import time
+import datetime
 import pickle
 import subprocess
 import sys
 import os
-from pymobiledevice3.remote.remote_service_discovery import RemoteServiceDiscoveryService
 import shutil
+
+BPLIST_MAGIC = b'bplist'
+PLIST_MAGIC = b'<plist'
+import plistlib
+import pprint
+import xml
+from typing import IO, Optional
+
+import click
+from scapy.packet import Packet, Raw
+from scapy.sendrecv import sniff
+
+
+
 
 address = "fdb0:b5dd:d72::1"
 rsd_port = 59655  # randomized
@@ -157,6 +175,7 @@ class H2Stream(TCPStream):
 
 class RemoteXPCSniffer:
     def __init__(self):
+        self.dtx_message_helpers: MutableMapping[str, ParseDTXHelper] = {}
         self._h2_streams: MutableMapping[str, H2Stream] = {}
         self._previous_frame_data: MutableMapping[str, bytes] = {}
 
@@ -213,6 +232,8 @@ class RemoteXPCSniffer:
         print()
         print()
         print(stream_key)
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+        print(current_time, stream_key)
         data = bytes(tcp_pkt.payload)
         
         folder_name = "{}/{}_{}".format(interface_folder, server_service, local_port)
@@ -223,10 +244,10 @@ class RemoteXPCSniffer:
         global packet_id
         direction = "inbound" if inbound else "outbound"
         # formate packet_id 4 digit, add 0 in front
-        name = '{}/{}_{}.bin'.format(folder_name, str(packet_id).zfill(4), direction)
-        with open(name, 'wb') as file:
+        packet_name = '{}/{}_{}.bin'.format(folder_name, str(packet_id).zfill(4), direction)
+        with open(packet_name, 'wb') as file:
             file.write(data)
-            logger.debug(f'write tcp packet payload data to: {name}')
+            logger.debug(f'write tcp packet payload data to: {packet_name}')
         hexStr = hexdump(data=data, result='return')
         # write hexStr to file
         name = '{}/{}_{}.txt'.format(folder_name, str(packet_id).zfill(4), direction)
@@ -236,7 +257,29 @@ class RemoteXPCSniffer:
         packet_id += 1
 
         if "testmanagerd" in server_service or "instruments" in server_service:
+            if stream_key not in self.dtx_message_helpers:
+                helper = ParseDTXHelper()
+                self.dtx_message_helpers[stream_key] = helper
+            helper = self.dtx_message_helpers[stream_key]
+            helper.parse_single_data(packet_name)
             return
+        
+        if "notification_proxy" in server_service or "remote.trusted" in server_service:
+            if stream_key not in self.plist_message_helpers:
+                helper = ParsePlistHelper()
+                self.plist_message_helpers[stream_key] = helper
+            helper = self.plist_message_helpers[stream_key]
+            helper.process_single_data(packet_name)
+            return
+
+        if "openstdiosocket" in server_service:
+            try:
+                content = data.decode('ascii', errors='replace')
+                print(content)
+            except Exception as e:
+                print("parse openstdiosocket failed")
+
+
          
         stream = self._h2_streams.setdefault(
             stream_key, H2Stream(net_pkt.src, tcp_pkt.sport, net_pkt.dst, tcp_pkt.dport))

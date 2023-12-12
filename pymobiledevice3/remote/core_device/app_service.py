@@ -282,3 +282,31 @@ class AppServiceService(CoreDeviceService):
     
     def launch_application_raw(self,data: bytes) -> Mapping:
         return self.invoke_raw(data)
+    
+    def test_send_signal(self, pid:int):
+        deviceIdentifier = "2070E331-97DE-429F-8D90-83133BE11FF2"
+        dic = {
+            "CoreDevice.CoreDeviceDDIProtocolVersion": XpcInt64Type(0),
+                "CoreDevice.action": {},
+                "CoreDevice.coreDeviceVersion": {
+                    "components": [
+                        XpcUInt64Type(348),
+                        XpcUInt64Type(1),
+                        XpcUInt64Type(0),
+                        XpcUInt64Type(0),
+                        XpcUInt64Type(0)
+                    ],
+                    "originalComponentsCount": XpcInt64Type(2),
+                    "stringValue": "348.1"  #copyDevice 的result里有
+                },
+                "CoreDevice.deviceIdentifier": deviceIdentifier,
+                "CoreDevice.featureIdentifier": "com.apple.coredevice.feature.sendsignaltoprocess",
+                "CoreDevice.input": {"process": {"processIdentifier": XpcInt64Type(pid)}, "signal": XpcInt64Type(19)},
+                "CoreDevice.invocationIdentifier": str(uuid.uuid4())  ##这个又是什么
+        }
+
+        response = self.service.send_receive_request(dic)
+        output = response.get('CoreDevice.output')
+        if output is None:
+            raise CoreDeviceError(f'Failed to invoke: com.apple.coredevice.feature.sendsignaltoprocess. Got error: {response}')
+        return output

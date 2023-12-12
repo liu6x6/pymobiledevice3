@@ -306,6 +306,49 @@ with RemoteServiceDiscoveryService((host, port)) as rsd:
     sessioinId = str(uuid.UUID(bytes=sessionIdentifier.bytes)).upper()
     with AppServiceService(rsd) as app_service:
         app_service.test_launch_application(re, sessionId=sessioinId,io_uuid=io_uuid)
+        pid = int(re["processToken"]["processIdentifier"])
+        print("pid：", pid)
+
+        ## instrument 相关
+        dvt = DvtSecureSocketProxyService(rsd)
+        dvt.perform_handshake()
+        channel_identifier = "com.apple.instruments.server.services.processcontrolbydictionary"
+        channelDictionary = dvt.make_channel(channel_identifier)
+
+        args = MessageAux()
+        args.append_obj(pid)
+        dvt.send_message(channel=channelDictionary, selector="startObservingPid:", args=args)
+        # ret = channelDictionary.receive_plist()
+
+
+        activitytracetap_id = "com.apple.instruments.server.services.activitytracetap"
+        channel_activitytracetap = dvt.make_channel(activitytracetap_id)
+        config = {
+            'bm': 0,
+            'excludeInfo': True,
+            'onlySignposts': False,
+            'includeSenderInfo': False,
+            'nohb': True,
+            'excludeDebug': True,
+            'ur': 10,
+            'includeWallTime': False,
+            'predicate': "processIdentifier == {} && logType == 'fault' && subsystem == 'com.apple.runtime-issues'".format(pid)
+        }
+        args2 = MessageAux()
+        args2.append_obj(config)
+        dvt.send_message(channel=channel_activitytracetap, selector="setConfig:", args=args2)
+        dvt.send_message(channel=channel_activitytracetap, selector="start")
+        # instrument 发送完setConfig start 之后 core device 发送sendsignal
+        app_service.test_send_signal(pid)
+
+
+        # testmanaged send  authorize
+        # args53 = MessageAux()
+        # args53.append_obj(pid)
+        # testmanged5.send_message(channel=channel51, selector="_IDE_authorizeTestSessionWithProcessID:", args=args53)
+        # print("prepare to receive message")
+        # ret1 = channel51.receive_plist()
+
 
     sleep(100)
     exit(0)
