@@ -24,10 +24,10 @@ import os
 from pymobiledevice3.remote.remote_service_discovery import RemoteServiceDiscoveryService
 import shutil
 
-address = "fde7:56e3:5a76::1"
-rsd_port = 51631  # randomized
+address = "fdb0:b5dd:d72::1"
+rsd_port = 59655  # randomized
 
-interface = "utun5"
+interface = "utun7"
 print(address)
 print(rsd_port)
 print(interface)
@@ -397,5 +397,4 @@ if __name__ == '__main__':
     #         sniffer = RemoteXPCSniffer()
     #         re = sniff(iface="utun8", prn=sniffer.process_packet)
     #         # sniffer.stop_sniffing()
-
     #     time.sleep(0.1)

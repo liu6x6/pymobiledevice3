@@ -3,8 +3,10 @@ from typing import List, Mapping
 
 from pymobiledevice3.remote.core_device.core_device_service import CoreDeviceService
 from pymobiledevice3.remote.remote_service_discovery import RemoteServiceDiscoveryService
-from pymobiledevice3.remote.xpc_message import XpcInt64Type
+from pymobiledevice3.remote.xpc_message import XpcInt64Type, XpcUInt64Type
+from pymobiledevice3.exceptions import CoreDeviceError
 
+import uuid
 
 class AppServiceService(CoreDeviceService):
     """
@@ -182,5 +184,101 @@ class AppServiceService(CoreDeviceService):
         return self.invoke('com.apple.coredevice.feature.launchapplication', input1)  
 
 
+    def test_launch_application(self, installResult: dict, sessionId: str, io_uuid: uuid) -> Mapping:
+        sessionIdentifier = sessionId
+        sideChannel = uuid.uuid4()
+        DBSequence = XpcUInt64Type(installResult["DBSequence"])
+        DBUUID = uuid.UUID(installResult["DBUUID"])
+        applicationBundleId = "com.apple.test.WebDriverAgentRunner-Runner"
+        PersistentIdentifier = installResult["PersistentIdentifier"]
+        installationURL = installResult["InstallPath"]["com.apple.CFURL.string"]
+        deviceIdentifier = "2070E331-97DE-429F-8D90-83133BE11FF2"
+        dic = {
+                "CoreDevice.CoreDeviceDDIProtocolVersion": XpcInt64Type(0),
+                "CoreDevice.action": {},
+                "CoreDevice.coreDeviceVersion": {
+                    "components": [
+                        XpcUInt64Type(348),
+                        XpcUInt64Type(1),
+                        XpcUInt64Type(0),
+                        XpcUInt64Type(0),
+                        XpcUInt64Type(0)
+                    ],
+                    "originalComponentsCount": XpcInt64Type(2),
+                    "stringValue": "348.1"  #copyDevice 的result里有
+                },
+                "CoreDevice.deviceIdentifier": deviceIdentifier,
+                "CoreDevice.featureIdentifier": "com.apple.coredevice.feature.launchapplication",
+                "CoreDevice.input": {
+                    "applicationSpecifier": {
+                        "bundleIdentifier": {
+                            "_0": "com.apple.test.WebDriverAgentRunner-Runner"
+                        }
+                    },
+                    "options": {
+                        "arguments": [],
+                        "environmentVariables": {
+                            "CA_ASSERT_MAIN_THREAD_TRANSACTIONS": "0",
+                            "CA_DEBUG_TRANSACTIONS": "0",
+                            "DYLD_FRAMEWORK_PATH": "/System/Developer/Library/Frameworks",
+                            "DYLD_LIBRARY_PATH": "/System/Developer/usr/lib",
+                            "LLVM_PROFILE_FILE": "/dev/null",
+                            "NSUnbufferedIO": "YES",
+                            "RUN_DESTINATION_DEVICE_ECID": "5076519073366046",
+                            "RUN_DESTINATION_DEVICE_NAME": "CN090",
+                            "RUN_DESTINATION_DEVICE_PLATFORM_IDENTIFIER": "com.apple.platform.iphoneos",
+                            "RUN_DESTINATION_DEVICE_UDID": "00008110-001209113410401E",
+                            "XCTestBundlePath": "PlugIns/WebDriverAgentRunner.xctest",
+                            "XCTestConfigurationFilePath": "",
+                            "XCTestManagerVariant": "DDI",
+                            "XCTestSessionIdentifier": sessionIdentifier, #
+                            "__XPC_LLVM_PROFILE_FILE": "/dev/null",
+                        },
+                        "installationResult": {
+                            "_persistentIdentifier": PersistentIdentifier,
+                            "applicationBundleId": applicationBundleId,
+                            "databaseSequenceNumber": DBSequence,
+                            "databaseUUID": DBUUID,
+                            "installationURL": {"relative": installationURL}
+                        },
+                        "platformSpecificOptions": (b'bplist00'
+                                                    b'\xd1\x01\x02_'
+                                                    b'\x10\x13__Acti'
+                                                    b'vateSuspende'
+                                                    b'd\t\x08\x0b'
+                                                    b'!\x00\x00\x00'
+                                                    b'\x00\x00\x00\x01'
+                                                    b'\x01\x00\x00\x00'
+                                                    b'\x00\x00\x00\x00'
+                                                    b'\x03\x00\x00\x00'
+                                                    b'\x00\x00\x00\x00'
+                                                    b'\x00\x00\x00\x00'
+                                                    b'\x00\x00\x00\x00'
+                                                    b'"'),
+                        "standardIOUsesPseudoterminals": True,
+                        "startStopped": True,
+                        "terminateExisting": True,
+                        "terminationHandler": {
+                            "sideChannel": sideChannel  #这个又是什么
+                        },
+                        "user": {
+                            "active": True
+                        },
+                        "workingDirectory": None
+                    },
+                    "standardIOIdentifiers": {
+                        "standardError": io_uuid,
+                        "standardInput": io_uuid,
+                        "standardOutput": io_uuid
+                    }
+                },
+                "CoreDevice.invocationIdentifier": str(uuid.uuid4())  ##这个又是什么
+            }
+        response = self.service.send_receive_request(dic)
+        output = response.get('CoreDevice.output')
+        if output is None:
+            raise CoreDeviceError(f'Failed to invoke: com.apple.coredevice.feature.launchapplication. Got error: {response}')
+        return output
+    
     def launch_application_raw(self,data: bytes) -> Mapping:
         return self.invoke_raw(data)
