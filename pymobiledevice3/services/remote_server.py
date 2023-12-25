@@ -96,6 +96,16 @@ class MessageAux:
         self.values.append({'type': 6, 'value': value})
         return self
 
+    def append_signed_int(self, value: int):
+        """ 有符号 int """
+        self.values.append({'type': 3, 'value': value})
+        return self
+    
+    def append_signed_long(self, value: int):
+        """ 有符号 long """
+        self.values.append({'type': 6, 'value': value})
+        return self
+
     def append_obj(self, value):
         self.values.append({'type': 2, 'value': value})
         return self
@@ -369,6 +379,7 @@ class RemoteServer(LockdownService):
             })
 
     def perform_handshake(self):
+        self.cur_message = 0
         args = MessageAux()
         args.append_obj({'com.apple.private.DTXBlockCompression': 2, 'com.apple.private.DTXConnection': 1})
         self.send_message(0, '_notifyOfPublishedCapabilities:', args, expects_reply=False)
@@ -423,10 +434,10 @@ class RemoteServer(LockdownService):
         print()
         msg = mheader + pheader + aux + sel
         if selector == "_IDE_collectNewCrashReportsInDirectories:matchingProcessNames:":
-            name = "/Users/isan/session.bin"
+            name = "/Users/xiao/session.bin"
             with open(name, 'wb') as file:
                 file.write(msg)
-                print("write _IDE_initiateSessionWithIdentifier:capabilities message to: session.bin")
+                print("write _IDE_collectNewCrashReportsInDirectories:matchingProcessNames: message to: session.bin")
         self.service.sendall(msg)
 
     def recv_plist(self, channel: int = BROADCAST_CHANNEL):
@@ -560,14 +571,14 @@ class ParseDTXHelper():
             # read dtx_message_header_struct.sizeof() data from the unitData
             headerData = unitData[:dtx_message_header_struct.sizeof()]
             mheader = dtx_message_header_struct.parse(headerData)
-            print("mheader: ", mheader)
+            # print("mheader: ", mheader)
             if mheader.fragmentCount > 1 and mheader.fragmentId == 0:
                 # when reading multiple message fragments, the first fragment contains only a message header
                 print("mheader.fragmentCount > 1 and mheader.fragmentId == 0")
                 return
             # read mheader.length bytes behind the header from the unitData
             fdata = unitData[dtx_message_header_struct.sizeof():dtx_message_header_struct.sizeof()+mheader.length]
-            print("fdata: ", len(fdata))
+            # print("fdata: ", len(fdata))
             if len(fdata) != mheader.length:
                 print("data 不完整")
                 self.previous_data = unitData
@@ -577,7 +588,7 @@ class ParseDTXHelper():
             chanelFra.add_fragment(mheader, fdata)
             stream = io.BytesIO(chanelFra.get())
             pheader = dtx_message_payload_header_struct.parse_stream(stream)
-            print("pheader: ", pheader)
+            # print("pheader: ", pheader)
             compression = (pheader.flags & 0xFF000) >> 12
             if compression:
                 print("NotImplementedError('Compressed')")
@@ -589,8 +600,8 @@ class ParseDTXHelper():
             else:
                 aux = None
             
-            print("aux: ")
-            pp.pprint(aux)
+            # print("aux: ")
+            # pp.pprint(aux)
             obj_size = pheader.totalLength - pheader.auxiliaryLength
             data = stream.read(obj_size) if obj_size else None
             
@@ -609,7 +620,8 @@ class ParseDTXHelper():
                     # raise e
                 except plistlib.InvalidFileException:
                     print(f'got an invalid plist: {data[:40]}')
-            print("data:", data)
+            # print("data:", data)
+            self.printData(mheader,fdata,pheader,aux,data)
             self.previous_data = b''
             # check if there is any remaining data in unitData
             if len(unitData) > dtx_message_header_struct.sizeof()+mheader.length:
@@ -630,10 +642,34 @@ class ParseDTXHelper():
             print("Empty")
             return
         except StreamError:
-            print("data 不完整")
+            print("data 不完整 StreamError")
             self.previous_data = unitData
             return
+
+    def printData(self,mheader,fdata,pheader,aux,data):
+        if data is None and aux is None:
+            print("empty DTXMessage")
+            return
+        if data == "_XCT_logDebugMessage:":
+            print("get _XCT_logDebugMessage:") #data is a list
+            for it in aux:
+                print(it.value)
+            return
+        print("mheader: ", mheader)
+        print("fdata: ", len(fdata))
+        print("pheader: ", pheader)
+
+        print("aux: ")
+        # pp.pprint(aux)
+        if aux is None:
+            print("aux is null")
+        else:
+            for it in aux:
+                print(it.value)
         
+        print("data:",data)
+        
+    
 
     def process_out_data(self, unitData):
         try:
@@ -644,14 +680,14 @@ class ParseDTXHelper():
             # read dtx_message_header_struct.sizeof() data from the unitData
             headerData = unitData[:dtx_message_header_struct.sizeof()]
             mheader = dtx_message_header_struct.parse(headerData)
-            print("mheader: ", mheader)
+            # print("mheader: ", mheader)
             if mheader.fragmentCount > 1 and mheader.fragmentId == 0:
                 # when reading multiple message fragments, the first fragment contains only a message header
                 print("mheader.fragmentCount > 1 and mheader.fragmentId == 0")
                 return
             # read mheader.length bytes behind the header from the unitData
             fdata = unitData[dtx_message_header_struct.sizeof():dtx_message_header_struct.sizeof()+mheader.length]
-            print("fdata: ", len(fdata))
+            # print("fdata: ", len(fdata))
             if len(fdata) != mheader.length:
                 print("data 不完整")
                 self.out_previous_data = unitData
@@ -661,7 +697,7 @@ class ParseDTXHelper():
             chanelFra.add_fragment(mheader, fdata)
             stream = io.BytesIO(chanelFra.get())
             pheader = dtx_message_payload_header_struct.parse_stream(stream)
-            print("pheader: ", pheader)
+            # print("pheader: ", pheader)
             compression = (pheader.flags & 0xFF000) >> 12
             if compression:
                 print("NotImplementedError('Compressed')")
@@ -672,8 +708,8 @@ class ParseDTXHelper():
                 aux = aux_struct.aux
             else:
                 aux = None
-            print("aux: ")
-            pp.pprint(aux)
+            # print("aux: ")
+            # pp.pprint(aux)
             obj_size = pheader.totalLength - pheader.auxiliaryLength
             data = stream.read(obj_size) if obj_size else None
             
@@ -692,7 +728,9 @@ class ParseDTXHelper():
                     # raise e
                 except plistlib.InvalidFileException:
                     print(f'got an invalid plist: {data[:40]}')
-            print("data:", data)
+            # print("data:", data)
+            self.printData(mheader,fdata,pheader,aux,data)
+
             self.out_previous_data = b''
             # check if there is any remaining data in unitData
             if len(unitData) > dtx_message_header_struct.sizeof()+mheader.length:

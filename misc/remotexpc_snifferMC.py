@@ -18,10 +18,10 @@ from pymobiledevice3.remote.remotexpc import HTTP2_MAGIC
 from pymobiledevice3.remote.xpc_message import XpcWrapper, decode_xpc_object
 from pymobiledevice3.remote.remote_service_discovery import RemoteServiceDiscoveryService
 from pymobiledevice3.services.remote_server import ParseDTXHelper
-from pymobiledevice3 import ParsePlistHelper
+from pymobiledevice3.ParsePlistHelper import ParsePlistHelper
 
 import time
-import datetime
+from datetime import datetime 
 import pickle
 import subprocess
 import sys
@@ -42,10 +42,10 @@ from scapy.sendrecv import sniff
 
 
 
-address = "fdb0:b5dd:d72::1"
-rsd_port = 59655  # randomized
+address = "fde3:bbec:f29e::1"
+rsd_port = 49241  
 
-interface = "utun7"
+interface = "utun3"
 print(address)
 print(rsd_port)
 print(interface)
@@ -176,6 +176,7 @@ class H2Stream(TCPStream):
 class RemoteXPCSniffer:
     def __init__(self):
         self.dtx_message_helpers: MutableMapping[str, ParseDTXHelper] = {}
+        self.plist_message_helpers: MutableMapping[str, ParsePlistHelper] = {}
         self._h2_streams: MutableMapping[str, H2Stream] = {}
         self._previous_frame_data: MutableMapping[str, bytes] = {}
 
@@ -279,7 +280,6 @@ class RemoteXPCSniffer:
             except Exception as e:
                 print("parse openstdiosocket failed")
 
-
          
         stream = self._h2_streams.setdefault(
             stream_key, H2Stream(net_pkt.src, tcp_pkt.sport, net_pkt.dst, tcp_pkt.dport))
@@ -297,7 +297,7 @@ class RemoteXPCSniffer:
             wrapper = XpcWrapper.parse(previous_frame_data + frame.data)
             print(wrapper.flags)
             print("message id: ", wrapper.message.message_id)
-            print("message: ", wrapper.message)
+            # print("message: ", wrapper.message)
             print("magic: ", wrapper.magic)
             name = '{}/{}.bin'.format(interface_folder , xpcWrapperIndex)
             with open(name, 'wb') as file:

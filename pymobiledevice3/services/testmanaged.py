@@ -21,3 +21,8 @@ class TestmanagerdService(RemoteServer):
             remove_ssl_context = False
 
         super().__init__(lockdown, service_name, remove_ssl_context=remove_ssl_context)
+
+    def sendEmptyReponse(channel,identify):
+        print("We need response the messae for ch:",channel)
+
+    # receive the handshake and then handshake ?

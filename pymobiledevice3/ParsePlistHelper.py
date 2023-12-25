@@ -6,8 +6,7 @@ from typing import Mapping, Optional
 
 from pygments import formatters, highlight, lexers
 
-from pymobiledevice3.exceptions import ConnectionFailedError, ConnectionTerminatedError, NoDeviceConnectedError, \
-    PyMobileDevice3Exception
+from pymobiledevice3.exceptions import PyMobileDevice3Exception
 
 class ParsePlistHelper():
     data = b''

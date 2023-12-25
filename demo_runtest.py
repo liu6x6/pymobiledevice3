@@ -1,4 +1,4 @@
-from pymobiledevice3.services.remote_server import MessageAux, NSUUID, XCTCapabilitiesArchive
+from pymobiledevice3.services.remote_server import MessageAux, NSUUID
 from pymobiledevice3.remote.remote_service_discovery import RemoteServiceDiscoveryService
 from pymobiledevice3.lockdown import create_using_usbmux
 from pymobiledevice3.services.syslog import SyslogService
@@ -13,14 +13,15 @@ import os
 from construct import StreamError
 from pymobiledevice3.exceptions import StreamClosedError
 
+from threading import Thread
 
 
 def type_serializer(o):
     # This will handle any unknown or non-native types.
     return f"<{o.__class__.__name__}>"
 
-host = 'fdb0:b5dd:d72::1'  # randomized
-port = 59655  # randomized
+host = 'fd88:2053:efdb::1'  # randomized
+port = 54717  # randomized
 
 
 from pymobiledevice3.services.dvt.dvt_secure_socket_proxy import DvtSecureSocketProxyService
@@ -50,6 +51,29 @@ SequenceNumber = 1
 #         print(json.dumps(re, default=type_serializer))
 #         SequenceNumber += 1
 #         sleep(30)
+
+
+
+# new thread for read DTXMessage
+def threaded_dtx1(tm: TestmanagerdService):
+    while True:
+        sleep(0.2)
+        try:
+            re = tm.recv_message()
+            print(" testManager1 receive: ",re)
+        except Exception as e:
+            print(" testManager1 Exception:",e)
+
+
+# new thread for testmanager2
+def threaded_dtx2(tm: TestmanagerdService):
+    while True:
+        sleep(0.2)
+        try:
+            re = tm.recv_message()
+            print(" testManager2 receive: ",re)
+        except Exception as e:
+            print(" testManager2 Exception:",e)
 
 with RemoteServiceDiscoveryService((host, port)) as rsd:
     print(rsd)
@@ -90,6 +114,13 @@ with RemoteServiceDiscoveryService((host, port)) as rsd:
     ## two testmanaged
     # testmanged5 stage 1 begin
     testmanged5 = TestmanagerdService(rsd)
+    print("create testmanged5")
+    # receive the handshake first ?
+    # mm1 = testmanged5.recv_plist()
+    # print("mm1 = ",mm1)
+    thread1 = Thread(target = threaded_dtx1, args = testmanged5)
+    thread1.start()
+    thread1.join()
     testmanged5.perform_handshake()
     channel_identifier = "dtxproxy:XCTestManager_IDEInterface:XCTestManager_DaemonConnectionInterface"
     channel51 = testmanged5.make_channel(channel_identifier)
@@ -107,12 +138,19 @@ with RemoteServiceDiscoveryService((host, port)) as rsd:
     ret1 = channel51.receive_plist()
     # print(ret1)
     sleep(1)
-    print("ddd")
+    print("will start testManger2")
     # testmanged5 stage 1 end
 
 
     # testmanged6 stage 1 begin
     testmanged6 = TestmanagerdService(rsd)
+    # sleep(1)
+    # mm2 = testmanged6.recv_message()
+    # print("mm2 = ",mm2)
+    thread2 = Thread(target = threaded_dtx2, args = testmanged6)
+    thread2.start()
+    thread2.join()
+
     testmanged6.perform_handshake()
     channel_identifier = "dtxproxy:XCTestManager_IDEInterface:XCTestManager_DaemonConnectionInterface"
     channel61 = testmanged6.make_channel(channel_identifier)
@@ -135,7 +173,7 @@ with RemoteServiceDiscoveryService((host, port)) as rsd:
     sessionIdentifier = NSUUID(bytes=os.urandom(16), version=4)
     args61 = MessageAux()
     args61.append_obj(sessionIdentifier)
-    capa = XCTCapabilitiesArchive()
+    capa = {}
     capa["capabilities-dictionary"] = {
             "expected failure test capability": 1,
             "test case run configurations": 1,
@@ -257,7 +295,7 @@ with RemoteServiceDiscoveryService((host, port)) as rsd:
 
      #upload zip file
     print(" push the ZIP file")
-    zip_file_path = "/Users/xiao/Desktop/turn/12-10/003/utun7/single_data_0.zip"
+    zip_file_path = "/Users/xiao/Desktop/turn/12-16/single_data_0.zip"
     with open(zip_file_path, 'rb') as file:
         binary_data = file.read()
         # # update date and time
@@ -305,9 +343,9 @@ with RemoteServiceDiscoveryService((host, port)) as rsd:
     print("try to launch WDA")
     sessioinId = str(uuid.UUID(bytes=sessionIdentifier.bytes)).upper()
     with AppServiceService(rsd) as app_service:
-        app_service.test_launch_application(re, sessionId=sessioinId,io_uuid=io_uuid)
+        re = app_service.test_launch_application(re, sessionId=sessioinId,io_uuid=io_uuid)
         pid = int(re["processToken"]["processIdentifier"])
-        print("pid：", pid)
+        print("pid:", pid)
 
         ## instrument 相关
         dvt = DvtSecureSocketProxyService(rsd)
@@ -338,17 +376,32 @@ with RemoteServiceDiscoveryService((host, port)) as rsd:
         args2.append_obj(config)
         dvt.send_message(channel=channel_activitytracetap, selector="setConfig:", args=args2)
         dvt.send_message(channel=channel_activitytracetap, selector="start")
+        # dvt.recv_message()
+        # dvt.recv_message()
         # instrument 发送完setConfig start 之后 core device 发送sendsignal
-        app_service.test_send_signal(pid)
+        
+        app_service2 = AppServiceService(rsd)
+        app_service2.connect()
+        sendSignal_resp = app_service2.test_send_signal(pid)
 
+        # testmanged6.recv_plist()
+        # testmanged5.recv_plist()
+        # sleep(100)
+        # dtx1 = testmanged6.service.recvall(16)
+        # print("dtx1",dtx1)
 
         # testmanaged send  authorize
-        # args53 = MessageAux()
-        # args53.append_obj(pid)
-        # testmanged5.send_message(channel=channel51, selector="_IDE_authorizeTestSessionWithProcessID:", args=args53)
-        # print("prepare to receive message")
+        args53 = MessageAux()
+        args53.append_obj(pid)
+        testmanged5.send_message(channel=channel51, selector="_IDE_authorizeTestSessionWithProcessID:", args=args53)
+        # # print("prepare to receive message")
         # ret1 = channel51.receive_plist()
 
+        #test6 _IDE_startExecutingTestPlanWithProtocolVersion
+        arg63 = MessageAux()
+        arg63.append_obj(36)
+        testmanged6.send_message(channel=-1,selector="_IDE_startExecutingTestPlanWithProtocolVersion:",args=arg63)
+        # testmanged6.recv_message()
 
     sleep(100)
     exit(0)
