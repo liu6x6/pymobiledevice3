@@ -53,7 +53,6 @@ SequenceNumber = 1
 #         sleep(30)
 
 
-
 # new thread for read DTXMessage
 def threaded_dtx1(tm: TestmanagerdService):
     while True:
@@ -77,8 +76,7 @@ def threaded_dtx2(tm: TestmanagerdService):
 
 with RemoteServiceDiscoveryService((host, port)) as rsd:
     print(rsd)
-    # exit(0)
-    
+     
     # call send_heartbeat in a new thread
     # import threading
     # t = threading.Thread(target=send_heartbeat, args=(rsd,))
@@ -90,26 +88,26 @@ with RemoteServiceDiscoveryService((host, port)) as rsd:
     #     print('device disconnected, awaiting reconnect')
     
     # mobile.notification_proxy.shim.remote_51722
-    notification =  NotificationProxyService(rsd)
+    # notification =  NotificationProxyService(rsd)
     # service.send_plist({'Label': label, 'ProtocolVersion': '2', 'Request': 'RSDCheckin'})
-    notification.service.send_plist({'Command': 'ObserveNotification', 'Name': 'com.apple.mobile.keybagd.lock_status'})
-    notification.service.send_plist({'Command': 'ObserveNotification', 'Name': 'com.apple.LaunchServices.ApplicationsChanged'})
-    notification.service.send_plist({'Command': 'ObserveNotification', 'Name': 'AMDNotificationFaceplant'})
+    # notification.service.send_plist({'Command': 'ObserveNotification', 'Name': 'com.apple.mobile.keybagd.lock_status'})
+    # notification.service.send_plist({'Command': 'ObserveNotification', 'Name': 'com.apple.LaunchServices.ApplicationsChanged'})
+    # notification.service.send_plist({'Command': 'ObserveNotification', 'Name': 'AMDNotificationFaceplant'})
     # re1 = notification.service.recv_plist()
     # re2 = notification.service.recv_plist()
     
     #copy device
-    with BridgeService(rsd) as bridge_service:  #local 51723
-        re = bridge_service.service.send_receive_request({'XPCRequestDictionary': {'Command': 'CopyDevices','HostProcessName': 'CoreDeviceService'}})
-        print(json.dumps(re, default=type_serializer))
-        rstFrame = RstStreamFrame(stream_id=1, error_code=5)
-        rstFrame1 = RstStreamFrame(stream_id=3, error_code=5)
-        bridge_service.service._send_frame(rstFrame)
-        bridge_service.service._send_frame(rstFrame1)
+    # with BridgeService(rsd) as bridge_service:  #local 51723
+    #     re = bridge_service.service.send_receive_request({'XPCRequestDictionary': {'Command': 'CopyDevices','HostProcessName': 'CoreDeviceService'}})
+    #     print(json.dumps(re, default=type_serializer))
+    #     rstFrame = RstStreamFrame(stream_id=1, error_code=5)
+    #     rstFrame1 = RstStreamFrame(stream_id=3, error_code=5)
+    #     bridge_service.service._send_frame(rstFrame)
+    #     bridge_service.service._send_frame(rstFrame1)
     
-    remoteTrusted = RemoteTrustedService(rsd)
-    remoteTrusted.service.send_plist({'Label': 'CoreDeviceService', 'ProtocolVersion': '2', 'Request': 'QueryType'})
-    remoteTrusted.service.send_plist({'Key': 'PasswordProtected', 'Label': 'CoreDeviceService', 'ProtocolVersion': '2', 'Request': 'GetValue'})
+    # remoteTrusted = RemoteTrustedService(rsd)
+    # remoteTrusted.service.send_plist({'Label': 'CoreDeviceService', 'ProtocolVersion': '2', 'Request': 'QueryType'})
+    # remoteTrusted.service.send_plist({'Key': 'PasswordProtected', 'Label': 'CoreDeviceService', 'ProtocolVersion': '2', 'Request': 'GetValue'})
     
     ## two testmanaged
     # testmanged5 stage 1 begin
@@ -122,24 +120,6 @@ with RemoteServiceDiscoveryService((host, port)) as rsd:
     thread1.start()
     thread1.join()
     testmanged5.perform_handshake()
-    channel_identifier = "dtxproxy:XCTestManager_IDEInterface:XCTestManager_DaemonConnectionInterface"
-    channel51 = testmanged5.make_channel(channel_identifier)
-    args51 = MessageAux()
-    args51.append_obj({"capabilities-dictionary":{}})
-    # args51.append_obj({})
-    testmanged5.send_message(channel=channel51, selector="_IDE_initiateControlSessionWithCapabilities:", args=args51)
-    ret = channel51.receive_plist()
-
-    args52 = MessageAux()
-    args52.append_obj(["/var/mobile/Library/Logs/CrashReporter/"])
-    args52.append_obj(['WebDriverAgentRunner-Runner', 'FrontBoard', 'WebDriverAgentRunner', 'debugserver', 'DTServiceHub', 'SpringBoard', 'runningboardd', 'xctest', 'assertiond', 'backboardd', 'testmanagerd'])
-    testmanged5.send_message(channel=channel51, selector="_IDE_collectNewCrashReportsInDirectories:matchingProcessNames:", args=args52)
-    print("prepare to receive message")
-    ret1 = channel51.receive_plist()
-    # print(ret1)
-    sleep(1)
-    print("will start testManger2")
-    # testmanged5 stage 1 end
 
 
     # testmanged6 stage 1 begin
@@ -173,26 +153,34 @@ with RemoteServiceDiscoveryService((host, port)) as rsd:
     sessionIdentifier = NSUUID(bytes=os.urandom(16), version=4)
     args61 = MessageAux()
     args61.append_obj(sessionIdentifier)
-    capa = {}
-    capa["capabilities-dictionary"] = {
-            "expected failure test capability": 1,
-            "test case run configurations": 1,
-            "test timeout capability": 1,
-            "test iterations":1,
-            "request diagnostics for specific devices":1,
-            "delayed attachment transfer":1,
-            "skipped test capability":1,
-            "daemon container sandbox extension":1,
-            "ubiquitous test identifiers":1,
-            "XCTIssue capability":1
-         }
+     
     args61.append_obj(capabilities)
     selector = "_IDE_initiateSessionWithIdentifier:capabilities:"
 
     testmanged6.send_message(channel=channel61, selector=selector, args=args61)
     ret1 = channel61.receive_plist()
     print(ret1)
-    # testmanged6 stage 1 end
+
+
+    channel_identifier = "dtxproxy:XCTestManager_IDEInterface:XCTestManager_DaemonConnectionInterface"
+    channel51 = testmanged5.make_channel(channel_identifier)
+    args51 = MessageAux()
+    args51.append_obj({"capabilities-dictionary":{}})
+    # args51.append_obj({})
+    testmanged5.send_message(channel=channel51, selector="_IDE_initiateControlSessionWithCapabilities:", args=args51)
+    ret = channel51.receive_plist()
+
+    args52 = MessageAux()
+    args52.append_obj(["/var/mobile/Library/Logs/CrashReporter/"])
+    args52.append_obj(['WebDriverAgentRunner-Runner', 'FrontBoard', 'WebDriverAgentRunner', 'debugserver', 'DTServiceHub', 'SpringBoard', 'runningboardd', 'xctest', 'assertiond', 'backboardd', 'testmanagerd'])
+    testmanged5.send_message(channel=channel51, selector="_IDE_collectNewCrashReportsInDirectories:matchingProcessNames:", args=args52)
+    print("prepare to receive message")
+    ret1 = channel51.receive_plist()
+    # print(ret1)
+    sleep(1)
+    print("will start testManger2")
+    # testmanged5 stage 1 end
+
 
     # 好像是查询某个bundleID的安装情况
     install_service1 = InstallcoordinationProxyService(rsd)
@@ -202,6 +190,7 @@ with RemoteServiceDiscoveryService((host, port)) as rsd:
     
     print("==================================================")
     sleep(0.5)
+    
     install_service2 = InstallcoordinationProxyService(rsd, involveUpload=True)
     install_service2.connect()
     # try to receive two header frame
