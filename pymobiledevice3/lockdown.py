@@ -3,6 +3,7 @@ import datetime
 import logging
 import os
 import plistlib
+import sys
 import tempfile
 import time
 from abc import ABC, abstractmethod
@@ -10,57 +11,32 @@ from contextlib import contextmanager, suppress
 from enum import Enum
 from functools import wraps
 from pathlib import Path
-from typing import Dict, Mapping, Optional
+from ssl import SSLZeroReturnError
+from typing import Dict, Generator, Mapping, Optional, Tuple
 
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
+from cryptography.hazmat.primitives.serialization import Encoding
+from cryptography.hazmat.primitives.serialization.pkcs7 import PKCS7SignatureBuilder
 from packaging.version import Version
 
 from pymobiledevice3 import usbmux
+from pymobiledevice3.bonjour import DEFAULT_BONJOUR_TIMEOUT, browse_mobdev2
 from pymobiledevice3.ca import ca_do_everything
+from pymobiledevice3.common import get_home_folder
 from pymobiledevice3.exceptions import CannotStopSessionError, ConnectionTerminatedError, FatalPairingError, \
-    IncorrectModeError, InvalidConnectionError, InvalidHostIDError, InvalidServiceError, LockdownError, \
-    MissingValueError, NotPairedError, PairingDialogResponsePendingError, PairingError, PasswordRequiredError, \
-    SetProhibitedError, StartServiceError, UserDeniedPairingError
+    GetProhibitedError, IncorrectModeError, InvalidConnectionError, InvalidHostIDError, InvalidServiceError, \
+    LockdownError, MissingValueError, NotPairedError, PairingDialogResponsePendingError, PairingError, \
+    PasswordRequiredError, SetProhibitedError, StartServiceError, UserDeniedPairingError
 from pymobiledevice3.irecv_devices import IRECV_DEVICES
 from pymobiledevice3.lockdown_service_provider import LockdownServiceProvider
 from pymobiledevice3.pair_records import create_pairing_records_cache_folder, generate_host_id, \
     get_preferred_pair_record
-from pymobiledevice3.service_connection import LockdownServiceConnection
+from pymobiledevice3.service_connection import ServiceConnection
 from pymobiledevice3.usbmux import PlistMuxConnection
 
 SYSTEM_BUID = '30142955-444094379208051516'
-DOMAINS = ['com.apple.disk_usage',
-           'com.apple.disk_usage.factory',
-           'com.apple.mobile.battery',
-           # FIXME: For some reason lockdownd segfaults on this, works sometimes tho
-           # 'com.apple.mobile.debug',
-           'com.apple.iqagent',
-           'com.apple.purplebuddy',
-           'com.apple.PurpleBuddy',
-           'com.apple.mobile.chaperone',
-           'com.apple.mobile.third_party_termination',
-           'com.apple.mobile.lockdownd',
-           'com.apple.mobile.lockdown_cache',
-           'com.apple.xcode.developerdomain',
-           'com.apple.international',
-           'com.apple.mobile.data_sync',
-           'com.apple.mobile.tethered_sync',
-           'com.apple.mobile.mobile_application_usage',
-           'com.apple.mobile.backup',
-           'com.apple.mobile.nikita',
-           'com.apple.mobile.restriction',
-           'com.apple.mobile.user_preferences',
-           'com.apple.mobile.sync_data_class',
-           'com.apple.mobile.software_behavior',
-           'com.apple.mobile.iTunes.SQLMusicLibraryPostProcessCommands',
-           'com.apple.mobile.iTunes.accessories',
-           'com.apple.mobile.internal',  # < iOS 4.0+
-           'com.apple.mobile.wireless_lockdown',  # < iOS 4.0+
-           'com.apple.fairplay',
-           'com.apple.iTunes',
-           'com.apple.mobile.iTunes.store',
-           'com.apple.mobile.iTunes',
-           'com.apple.fmip',
-           'com.apple.Accessibility', ]
 
 DEFAULT_LABEL = 'pymobiledevice3'
 SERVICE_PORT = 62078
@@ -81,27 +57,28 @@ def _reconnect_on_remote_close(f):
     transmitted). When this happens, we'll attempt to reconnect.
     """
 
+    def _reconnect(self: 'LockdownClient'):
+        self._reestablish_connection()
+        self.validate_pairing()
+
     @wraps(f)
     def _inner_reconnect_on_remote_close(*args, **kwargs):
         try:
             return f(*args, **kwargs)
         except (BrokenPipeError, ConnectionTerminatedError):
-            self = args[0]
-
-            # first we release the socket on our end to avoid a ResourceWarning
-            self.close()
-
-            # now we re-establish the connection
-            self.logger.debug('remote device closed the connection. reconnecting...')
-            self.service = self._create_service_connection(self.port)
-            self.validate_pairing()
+            _reconnect(args[0])
+            return f(*args, **kwargs)
+        except ConnectionAbortedError:
+            if sys.platform != 'win32':
+                raise
+            _reconnect(args[0])
             return f(*args, **kwargs)
 
     return _inner_reconnect_on_remote_close
 
 
 class LockdownClient(ABC, LockdownServiceProvider):
-    def __init__(self, service: LockdownServiceConnection, host_id: str, identifier: str = None,
+    def __init__(self, service: ServiceConnection, host_id: str, identifier: str = None,
                  label: str = DEFAULT_LABEL, system_buid: str = SYSTEM_BUID, pair_record: Mapping = None,
                  pairing_records_cache_folder: Path = None, port: int = SERVICE_PORT):
         """
@@ -139,10 +116,11 @@ class LockdownClient(ABC, LockdownServiceProvider):
         self.product_type = self.all_values.get('ProductType')
 
     @classmethod
-    def create(cls, service: LockdownServiceConnection, identifier: str = None, system_buid: str = SYSTEM_BUID,
-               label: str = DEFAULT_LABEL, autopair: bool = True, pair_timeout: int = None, local_hostname: str = None,
+    def create(cls, service: ServiceConnection, identifier: str = None, system_buid: str = SYSTEM_BUID,
+               label: str = DEFAULT_LABEL, autopair: bool = True, pair_timeout: float = None,
+               local_hostname: str = None,
                pair_record: Mapping = None, pairing_records_cache_folder: Path = None, port: int = SERVICE_PORT,
-               **cls_specific_args):
+               private_key: Optional[RSAPrivateKey] = None, **cls_specific_args):
         """
         Create a LockdownClient instance
 
@@ -156,6 +134,7 @@ class LockdownClient(ABC, LockdownServiceProvider):
         :param pair_record: Use this pair record instead of the default behavior (search in host/create our own)
         :param pairing_records_cache_folder: Use the following location to search and save pair records
         :param port: lockdownd service port
+        :param private_key: Used to pass custom RSA key for pairing purposes, if None it will be autogenerated
         :param cls_specific_args: Additional members to pass into LockdownClient subclasses
         :return: LockdownClient subclass
         """
@@ -166,18 +145,23 @@ class LockdownClient(ABC, LockdownServiceProvider):
             service, host_id=host_id, identifier=identifier, label=label, system_buid=system_buid,
             pair_record=pair_record, pairing_records_cache_folder=pairing_records_cache_folder, port=port,
             **cls_specific_args)
-
-        lockdown_client._handle_autopair(autopair, pair_timeout)
+        lockdown_client._handle_autopair(autopair, pair_timeout, private_key=private_key)
         return lockdown_client
 
     def __repr__(self) -> str:
         return f'<{self.__class__.__name__} ID:{self.identifier} VERSION:{self.product_version} ' \
                f'TYPE:{self.product_type} PAIRED:{self.paired}>'
 
-    def __enter__(self):
+    def __enter__(self) -> 'LockdownClient':
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.close()
+
+    async def __aenter__(self) -> 'LockdownClient':
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         self.close()
 
     @property
@@ -196,17 +180,8 @@ class LockdownClient(ABC, LockdownServiceProvider):
         return self.all_values.get('WiFiAddress')
 
     @property
-    def all_domains(self) -> Mapping:
-        result = self.all_values
-
-        for domain in DOMAINS:
-            result.update({domain: self.get_value(domain)})
-
-        return result
-
-    @property
     def short_info(self) -> Dict:
-        keys_to_copy = ['DeviceClass', 'DeviceName', 'BuildVersion', 'ProductVersion', 'ProductType']
+        keys_to_copy = ['DeviceClass', 'DeviceName', 'BuildVersion', 'ProductVersion', 'ProductType', 'UniqueDeviceID']
         result = {
             'Identifier': self.identifier,
         }
@@ -217,6 +192,16 @@ class LockdownClient(ABC, LockdownServiceProvider):
     @property
     def share_iphone_analytics_enabled(self) -> bool:
         return self.get_value('com.apple.MobileDeviceCrashCopy', 'ShouldSubmit')
+
+    @property
+    def assistive_touch(self) -> bool:
+        """AssistiveTouch (the on-screen software home button)"""
+        return bool(self.get_value('com.apple.Accessibility').get('AssistiveTouchEnabledByiTunes', 0))
+
+    @assistive_touch.setter
+    def assistive_touch(self, value: bool) -> None:
+        """AssistiveTouch (the on-screen software home button)"""
+        self.set_value(int(value), 'com.apple.Accessibility', 'AssistiveTouchEnabledByiTunes')
 
     @property
     def voice_over(self) -> bool:
@@ -342,7 +327,12 @@ class LockdownClient(ABC, LockdownServiceProvider):
         self.session_id = start_session.get('SessionID')
         if start_session.get('EnableSessionSSL'):
             with self.ssl_file() as f:
-                self.service.ssl_start(f)
+                try:
+                    self.service.ssl_start(f)
+                except SSLZeroReturnError:
+                    # possible when we have a pair record, but it was removed on-device
+                    self._reestablish_connection()
+                    return False
 
         self.paired = True
 
@@ -353,7 +343,49 @@ class LockdownClient(ABC, LockdownServiceProvider):
         return True
 
     @_reconnect_on_remote_close
-    def pair(self, timeout: int = None) -> None:
+    def pair(self, timeout: float = None, private_key: Optional[RSAPrivateKey] = None) -> None:
+        self.device_public_key = self.get_value('', 'DevicePublicKey')
+        if not self.device_public_key:
+            self.logger.error('Unable to retrieve DevicePublicKey')
+            self.service.close()
+            raise PairingError()
+
+        self.logger.info('Creating host key & certificate')
+        cert_pem, private_key_pem, device_certificate = ca_do_everything(self.device_public_key,
+                                                                         private_key=private_key)
+
+        pair_record = {'DevicePublicKey': self.device_public_key,
+                       'DeviceCertificate': device_certificate,
+                       'HostCertificate': cert_pem,
+                       'HostID': self.host_id,
+                       'RootCertificate': cert_pem,
+                       'RootPrivateKey': private_key_pem,
+                       'WiFiMACAddress': self.wifi_mac_address,
+                       'SystemBUID': self.system_buid}
+
+        pair_options = {'PairRecord': pair_record, 'ProtocolVersion': '2',
+                        'PairingOptions': {'ExtendedPairingErrors': True}}
+
+        pair = self._request_pair(pair_options, timeout=timeout)
+
+        pair_record['HostPrivateKey'] = private_key_pem
+        escrow_bag = pair.get('EscrowBag')
+
+        if escrow_bag is not None:
+            pair_record['EscrowBag'] = pair.get('EscrowBag')
+
+        self.pair_record = pair_record
+        self.save_pair_record()
+        self.paired = True
+
+    @_reconnect_on_remote_close
+    def pair_supervised(self, keybag_file: Path, timeout: Optional[float] = None) -> None:
+        with open(keybag_file, 'rb') as keybag_file:
+            keybag_file = keybag_file.read()
+        private_key = serialization.load_pem_private_key(keybag_file, password=None)
+        cer = x509.load_pem_x509_certificate(keybag_file)
+        public_key = cer.public_bytes(Encoding.DER)
+
         self.device_public_key = self.get_value('', 'DevicePublicKey')
         if not self.device_public_key:
             self.logger.error('Unable to retrieve DevicePublicKey')
@@ -373,9 +405,22 @@ class LockdownClient(ABC, LockdownServiceProvider):
                        'SystemBUID': self.system_buid}
 
         pair_options = {'PairRecord': pair_record, 'ProtocolVersion': '2',
-                        'PairingOptions': {'ExtendedPairingErrors': True}}
+                        'PairingOptions': {
+                            'SupervisorCertificate': public_key,
+                            'ExtendedPairingErrors': True}}
 
+        # first pair with SupervisorCertificate as PairingOptions to get PairingChallenge
         pair = self._request_pair(pair_options, timeout=timeout)
+        if pair.get('Error') == 'MCChallengeRequired':
+            extended_response = pair.get('ExtendedResponse')
+            if extended_response is not None:
+                pairing_challenge = extended_response.get('PairingChallenge')
+                signed_response = PKCS7SignatureBuilder().set_data(pairing_challenge).add_signer(
+                    cer, private_key, hashes.SHA256()).sign(Encoding.DER, [])
+                pair_options = {'PairRecord': pair_record, 'ProtocolVersion': '2', 'PairingOptions': {
+                    'ChallengeResponse': signed_response, 'ExtendedPairingErrors': True}}
+                # second pair with Response to Challenge
+                pair = self._request_pair(pair_options, timeout=timeout)
 
         pair_record['HostPrivateKey'] = private_key_pem
         escrow_bag = pair.get('EscrowBag')
@@ -452,7 +497,7 @@ class LockdownClient(ABC, LockdownServiceProvider):
         return response
 
     @_reconnect_on_remote_close
-    def start_lockdown_service(self, name: str, include_escrow_bag: bool = False) -> LockdownServiceConnection:
+    def start_lockdown_service(self, name: str, include_escrow_bag: bool = False) -> ServiceConnection:
         attr = self.get_service_connection_attributes(name, include_escrow_bag=include_escrow_bag)
         service_connection = self._create_service_connection(attr['Port'])
 
@@ -462,7 +507,7 @@ class LockdownClient(ABC, LockdownServiceProvider):
         return service_connection
 
     async def aio_start_lockdown_service(
-            self, name: str, include_escrow_bag: bool = False) -> LockdownServiceConnection:
+            self, name: str, include_escrow_bag: bool = False) -> ServiceConnection:
         attr = self.get_service_connection_attributes(name, include_escrow_bag=include_escrow_bag)
         service_connection = self._create_service_connection(attr['Port'])
 
@@ -490,7 +535,7 @@ class LockdownClient(ABC, LockdownServiceProvider):
         finally:
             os.unlink(filename)
 
-    def _handle_autopair(self, autopair: bool, timeout: int) -> None:
+    def _handle_autopair(self, autopair: bool, timeout: float, private_key: Optional[RSAPrivateKey] = None) -> None:
         if self.validate_pairing():
             return
 
@@ -498,13 +543,13 @@ class LockdownClient(ABC, LockdownServiceProvider):
         if not autopair:
             # but pairing by default was not requested
             return
-        self.pair(timeout=timeout)
+        self.pair(timeout=timeout, private_key=private_key)
         # get session_id
         if not self.validate_pairing():
             raise FatalPairingError()
 
     @abstractmethod
-    def _create_service_connection(self, port: int) -> LockdownServiceConnection:
+    def _create_service_connection(self, port: int) -> ServiceConnection:
         """ Used to establish a new ServiceConnection to a given port """
         pass
 
@@ -519,23 +564,27 @@ class LockdownClient(ABC, LockdownServiceProvider):
 
         error = response.get('Error')
         if error is not None:
+            # return response if supervisor cert challenge is required, to work with pair_supervisor
+            if error == 'MCChallengeRequired':
+                return response
             exception_errors = {'PasswordProtected': PasswordRequiredError,
                                 'PairingDialogResponsePending': PairingDialogResponsePendingError,
                                 'UserDeniedPairing': UserDeniedPairingError,
                                 'InvalidHostID': InvalidHostIDError,
+                                'GetProhibited': GetProhibitedError,
                                 'SetProhibited': SetProhibitedError,
                                 'MissingValue': MissingValueError,
                                 'InvalidService': InvalidServiceError,
                                 'InvalidConnection': InvalidConnectionError, }
-            raise exception_errors.get(error, LockdownError)(error)
+            raise exception_errors.get(error, LockdownError)(error, self.identifier)
 
         # iOS < 5: 'Error' is not present, so we need to check the 'Result' instead
         if response.get('Result') == 'Failure':
-            raise LockdownError()
+            raise LockdownError('', self.identifier)
 
         return response
 
-    def _request_pair(self, pair_options: Mapping, timeout: int = None) -> Mapping:
+    def _request_pair(self, pair_options: Mapping, timeout: Optional[float] = None) -> Mapping:
         try:
             return self._request('Pair', pair_options)
         except PairingDialogResponsePendingError:
@@ -558,9 +607,13 @@ class LockdownClient(ABC, LockdownServiceProvider):
         pair_record_file = self.pairing_records_cache_folder / f'{self.identifier}.plist'
         pair_record_file.write_bytes(plistlib.dumps(self.pair_record))
 
+    def _reestablish_connection(self) -> None:
+        self.close()
+        self.service = self._create_service_connection(self.port)
+
 
 class UsbmuxLockdownClient(LockdownClient):
-    def __init__(self, service: LockdownServiceConnection, host_id: str, identifier: str = None,
+    def __init__(self, service: ServiceConnection, host_id: str, identifier: str = None,
                  label: str = DEFAULT_LABEL, system_buid: str = SYSTEM_BUID, pair_record: Mapping = None,
                  pairing_records_cache_folder: Path = None, port: int = SERVICE_PORT,
                  usbmux_address: Optional[str] = None):
@@ -579,10 +632,10 @@ class UsbmuxLockdownClient(LockdownClient):
             self.pair_record = get_preferred_pair_record(self.identifier, self.pairing_records_cache_folder,
                                                          usbmux_address=self.usbmux_address)
 
-    def _create_service_connection(self, port: int) -> LockdownServiceConnection:
-        return LockdownServiceConnection.create_using_usbmux(self.identifier, port,
-                                                             self.service.mux_device.connection_type,
-                                                             usbmux_address=self.usbmux_address)
+    def _create_service_connection(self, port: int) -> ServiceConnection:
+        return ServiceConnection.create_using_usbmux(self.identifier, port,
+                                                     self.service.mux_device.connection_type,
+                                                     usbmux_address=self.usbmux_address)
 
 
 class PlistUsbmuxLockdownClient(UsbmuxLockdownClient):
@@ -594,7 +647,7 @@ class PlistUsbmuxLockdownClient(UsbmuxLockdownClient):
 
 
 class TcpLockdownClient(LockdownClient):
-    def __init__(self, service: LockdownServiceConnection, host_id: str, hostname: str, identifier: str = None,
+    def __init__(self, service: ServiceConnection, host_id: str, hostname: str, identifier: str = None,
                  label: str = DEFAULT_LABEL, system_buid: str = SYSTEM_BUID, pair_record: Mapping = None,
                  pairing_records_cache_folder: Path = None, port: int = SERVICE_PORT, keep_alive: bool = True):
         """
@@ -616,26 +669,26 @@ class TcpLockdownClient(LockdownClient):
         self._keep_alive = keep_alive
         self.hostname = hostname
 
-    def _create_service_connection(self, port: int) -> LockdownServiceConnection:
-        return LockdownServiceConnection.create_using_tcp(self.hostname, port, keep_alive=self._keep_alive)
+    def _create_service_connection(self, port: int) -> ServiceConnection:
+        return ServiceConnection.create_using_tcp(self.hostname, port, keep_alive=self._keep_alive)
 
 
 class RemoteLockdownClient(LockdownClient):
-    def _create_service_connection(self, port: int) -> LockdownServiceConnection:
+    def _create_service_connection(self, port: int) -> ServiceConnection:
         raise NotImplementedError(
             'RemoteXPC service connections should only be created using RemoteServiceDiscoveryService')
 
-    def _handle_autopair(self, *args):
+    def _handle_autopair(self, *args, **kwargs):
         # The RemoteXPC version of lockdown doesn't support pairing operations
         return None
 
-    def pair(self, timeout: int = None) -> None:
+    def pair(self, *args, **kwargs) -> None:
         raise NotImplementedError('RemoteXPC lockdown version does not support pairing operations')
 
-    def unpair(self, timeout: int = None) -> None:
+    def unpair(self, timeout: float = None) -> None:
         raise NotImplementedError('RemoteXPC lockdown version does not support pairing operations')
 
-    def __init__(self, service: LockdownServiceConnection, host_id: str, identifier: str = None,
+    def __init__(self, service: ServiceConnection, host_id: str, identifier: str = None,
                  label: str = DEFAULT_LABEL, system_buid: str = SYSTEM_BUID, pair_record: Mapping = None,
                  pairing_records_cache_folder: Path = None, port: int = SERVICE_PORT):
         """
@@ -655,7 +708,7 @@ class RemoteLockdownClient(LockdownClient):
 
 
 def create_using_usbmux(serial: str = None, identifier: str = None, label: str = DEFAULT_LABEL, autopair: bool = True,
-                        connection_type: str = None, pair_timeout: int = None, local_hostname: str = None,
+                        connection_type: str = None, pair_timeout: float = None, local_hostname: str = None,
                         pair_record: Mapping = None, pairing_records_cache_folder: Path = None,
                         port: int = SERVICE_PORT, usbmux_address: Optional[str] = None) -> UsbmuxLockdownClient:
     """
@@ -674,8 +727,8 @@ def create_using_usbmux(serial: str = None, identifier: str = None, label: str =
     :param usbmux_address: usbmuxd address
     :return: UsbmuxLockdownClient instance
     """
-    service = LockdownServiceConnection.create_using_usbmux(serial, port, connection_type=connection_type,
-                                                            usbmux_address=usbmux_address)
+    service = ServiceConnection.create_using_usbmux(serial, port, connection_type=connection_type,
+                                                    usbmux_address=usbmux_address)
     cls = UsbmuxLockdownClient
     with usbmux.create_mux(usbmux_address=usbmux_address) as client:
         if isinstance(client, PlistMuxConnection):
@@ -694,7 +747,7 @@ def create_using_usbmux(serial: str = None, identifier: str = None, label: str =
 
 
 def create_using_tcp(hostname: str, identifier: str = None, label: str = DEFAULT_LABEL, autopair: bool = True,
-                     pair_timeout: int = None, local_hostname: str = None, pair_record: Mapping = None,
+                     pair_timeout: float = None, local_hostname: str = None, pair_record: Mapping = None,
                      pairing_records_cache_folder: Path = None, port: int = SERVICE_PORT,
                      keep_alive: bool = False) -> TcpLockdownClient:
     """
@@ -712,7 +765,7 @@ def create_using_tcp(hostname: str, identifier: str = None, label: str = DEFAULT
     :param keep_alive: use keep-alive to get notified when the connection is lost
     :return: TcpLockdownClient instance
     """
-    service = LockdownServiceConnection.create_using_tcp(hostname, port, keep_alive=keep_alive)
+    service = ServiceConnection.create_using_tcp(hostname, port, keep_alive=keep_alive)
     client = TcpLockdownClient.create(
         service, identifier=identifier, label=label, local_hostname=local_hostname, pair_record=pair_record,
         pairing_records_cache_folder=pairing_records_cache_folder, pair_timeout=pair_timeout, autopair=autopair,
@@ -720,14 +773,14 @@ def create_using_tcp(hostname: str, identifier: str = None, label: str = DEFAULT
     return client
 
 
-def create_using_remote(service: LockdownServiceConnection, identifier: str = None, label: str = DEFAULT_LABEL,
-                        autopair: bool = True, pair_timeout: int = None, local_hostname: str = None,
+def create_using_remote(service: ServiceConnection, identifier: str = None, label: str = DEFAULT_LABEL,
+                        autopair: bool = True, pair_timeout: float = None, local_hostname: str = None,
                         pair_record: Mapping = None, pairing_records_cache_folder: Path = None,
                         port: int = SERVICE_PORT) -> RemoteLockdownClient:
     """
     Create a TcpLockdownClient instance over RSD
 
-    :param hostname: The target device hostname
+    :param service: service connection to use
     :param identifier: Used as an identifier to look for the device pair record
     :param label: lockdownd user-agent
     :param autopair: Attempt to pair with device (blocking) if not already paired
@@ -743,3 +796,47 @@ def create_using_remote(service: LockdownServiceConnection, identifier: str = No
         pairing_records_cache_folder=pairing_records_cache_folder, pair_timeout=pair_timeout, autopair=autopair,
         port=port)
     return client
+
+
+async def get_mobdev2_lockdowns(
+        udid: Optional[str] = None, pair_records: Optional[Path] = None, only_paired: bool = False,
+        timeout: float = DEFAULT_BONJOUR_TIMEOUT) \
+        -> Generator[Tuple[str, TcpLockdownClient], None, None]:
+    records = {}
+    if pair_records is None:
+        pair_records = get_home_folder()
+    for file in pair_records.glob('*.plist'):
+        if file.name.startswith('remote_'):
+            # skip RemotePairing records
+            continue
+        record_udid = file.parts[-1].strip('.plist')
+        if udid is not None and record_udid != udid:
+            continue
+        record = plistlib.loads(file.read_bytes())
+        records[record['WiFiMACAddress']] = record
+
+    iterated_ips = set()
+    for answer in await browse_mobdev2(timeout=timeout):
+        if '@' not in answer.name:
+            continue
+        wifi_mac_address = answer.name.split('@', 1)[0]
+        record = records.get(wifi_mac_address)
+
+        if only_paired and record is None:
+            continue
+
+        for ip in answer.ips:
+            if ip in iterated_ips:
+                # skip ips we already iterated over, possibly from previous queries
+                continue
+            iterated_ips.add(ip)
+            try:
+                lockdown = create_using_tcp(hostname=ip, autopair=False, pair_record=record)
+            except Exception:
+                continue
+            if lockdown is None:
+                continue
+            if only_paired and not lockdown.paired:
+                lockdown.close()
+                continue
+            yield ip, lockdown

@@ -1,9 +1,12 @@
+import asyncio
 import datetime
 import json
 import logging
 import os
+import sys
 import uuid
-from typing import Callable, List, Mapping, Optional, Tuple
+from functools import wraps
+from typing import Any, Callable, List, Mapping, Optional, Tuple
 
 import click
 import coloredlogs
@@ -13,14 +16,17 @@ from click import Option, UsageError
 from inquirer3.themes import GreenPassion
 from pygments import formatters, highlight, lexers
 
-from pymobiledevice3.exceptions import AccessDeniedError, DeviceNotFoundError, NoDeviceConnectedError, \
-    NoDeviceSelectedError
+from pymobiledevice3.exceptions import AccessDeniedError, DeviceNotFoundError, NoDeviceConnectedError
 from pymobiledevice3.lockdown import LockdownClient, create_using_usbmux
+from pymobiledevice3.osu.os_utils import get_os_utils
 from pymobiledevice3.remote.remote_service_discovery import RemoteServiceDiscoveryService
-from pymobiledevice3.remote.utils import get_tunneld_devices
+from pymobiledevice3.tunneld import TUNNELD_DEFAULT_ADDRESS, async_get_tunneld_devices
 from pymobiledevice3.usbmux import select_devices_by_connection_type
 
 USBMUX_OPTION_HELP = 'usbmuxd listener address (in the form of either /path/to/unix/socket OR HOST:PORT'
+COLORED_OUTPUT = True
+UDID_ENV_VAR = 'PYMOBILEDEVICE3_UDID'
+OSUTILS = get_os_utils()
 
 
 class RSDOption(Option):
@@ -30,14 +36,16 @@ class RSDOption(Option):
         if self.mutually_exclusive:
             ex_str = ', '.join(self.mutually_exclusive)
             kwargs['help'] = help + (
-                    ' NOTE: This argument is mutually exclusive with '
+                    '\nNOTE: This argument is mutually exclusive with '
                     ' arguments: [' + ex_str + '].'
             )
         super().__init__(*args, **kwargs)
 
     def handle_parse_result(self, ctx, opts, args):
-        if len(opts) == 0 and isinstance(ctx.command, RSDCommand) and not (isinstance(ctx.command, Command)):
-            raise UsageError('Illegal usage: At least one is required [--rsd | --tunnel]')
+        if (isinstance(ctx.command, RSDCommand) and not (isinstance(ctx.command, Command)) and
+                ('rsd_service_provider_using_tunneld' not in opts) and ('rsd_service_provider_manually' not in opts)):
+            # defaulting to `--tunnel ''` if no remote option was specified
+            opts['rsd_service_provider_using_tunneld'] = ''
         if self.mutually_exclusive.intersection(opts) and self.name in opts:
             raise UsageError(
                 'Illegal usage: `{}` is mutually exclusive with '
@@ -64,14 +72,18 @@ def default_json_encoder(obj):
     raise TypeError()
 
 
-def print_json(buf, colored=True, default=default_json_encoder):
+def print_json(buf, colored: Optional[bool] = None, default=default_json_encoder):
+    if colored is None:
+        colored = user_requested_colored_output()
     formatted_json = json.dumps(buf, sort_keys=True, indent=4, default=default)
-    if colored:
+    if colored and os.isatty(sys.stdout.fileno()):
         colorful_json = highlight(formatted_json, lexers.JsonLexer(),
                                   formatters.TerminalTrueColorFormatter(style='stata-dark'))
         print(colorful_json)
+        return colorful_json
     else:
         print(formatted_json)
+        return formatted_json
 
 
 def print_hex(data, colored=True):
@@ -86,16 +98,23 @@ def set_verbosity(ctx, param, value):
     coloredlogs.set_level(logging.INFO - (value * 10))
 
 
-def wait_return():
-    input('> Hit RETURN to exit')
+def set_color_flag(ctx, param, value) -> None:
+    global COLORED_OUTPUT
+    COLORED_OUTPUT = value
 
 
-UDID_ENV_VAR = 'PYMOBILEDEVICE3_UDID'
+def user_requested_colored_output() -> bool:
+    return COLORED_OUTPUT and os.isatty(sys.stdout.fileno())
+
+
+def get_last_used_terminal_formatting(buf: str) -> str:
+    return '\x1b' + buf.rsplit('\x1b', 1)[1].split('m')[0] + 'm'
 
 
 def sudo_required(func):
+    @wraps(func)
     def wrapper(*args, **kwargs):
-        if os.geteuid() != 0:
+        if not OSUTILS.is_admin:
             raise AccessDeniedError()
         else:
             func(*args, **kwargs)
@@ -103,13 +122,17 @@ def sudo_required(func):
     return wrapper
 
 
-def prompt_device_list(device_list: List):
-    device_question = [inquirer3.List('device', message='choose device', choices=device_list, carousel=True)]
+def prompt_selection(choices: List[Any], message: str, idx: bool = False) -> Any:
+    question = [inquirer3.List('selection', message=message, choices=choices, carousel=True)]
     try:
-        result = inquirer3.prompt(device_question, theme=GreenPassion(), raise_keyboard_interrupt=True)
-        return result['device']
+        result = inquirer3.prompt(question, theme=GreenPassion(), raise_keyboard_interrupt=True)
     except KeyboardInterrupt:
-        raise NoDeviceSelectedError()
+        raise click.ClickException('No selection was made')
+    return result['selection'] if not idx else choices.index(result['selection'])
+
+
+def prompt_device_list(device_list: List):
+    return prompt_selection(device_list, 'Choose device')
 
 
 def choose_service_provider(callback: Callable):
@@ -134,12 +157,22 @@ class BaseCommand(click.Command):
         super().__init__(*args, **kwargs)
         self.params[:0] = [
             click.Option(('verbosity', '-v', '--verbose'), count=True, callback=set_verbosity, expose_value=False),
+            click.Option(('color', '--color/--no-color'), default=True, callback=set_color_flag, is_flag=True,
+                         expose_value=False, help='colorize output'),
+        ]
+
+
+class BaseServiceProviderCommand(BaseCommand):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.params[:0] = [
+            click.Option(('verbosity', '-v', '--verbose'), count=True, callback=set_verbosity, expose_value=False),
         ]
         self.service_provider = None
         self.callback = choose_service_provider(self.callback)
 
 
-class LockdownCommand(BaseCommand):
+class LockdownCommand(BaseServiceProviderCommand):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.usbmux_address = None
@@ -175,30 +208,38 @@ class LockdownCommand(BaseCommand):
             [create_using_usbmux(serial=device.serial, usbmux_address=self.usbmux_address) for device in devices])
 
 
-class RSDCommand(BaseCommand):
+class RSDCommand(BaseServiceProviderCommand):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.params[:0] = [
             RSDOption(('rsd_service_provider_manually', '--rsd'), type=(str, int), callback=self.rsd,
                       mutually_exclusive=['rsd_service_provider_using_tunneld'],
-                      help='RSD hostname and port number'),
+                      help='\b\n'
+                           'RSD hostname and port number (as provided by a `start-tunnel` subcommand).'),
             RSDOption(('rsd_service_provider_using_tunneld', '--tunnel'), callback=self.tunneld,
                       mutually_exclusive=['rsd_service_provider_manually'],
-                      help='Either an empty string to force tunneld device selection, or a UDID of a tunneld '
-                           'discovered device')
+                      help='\b\n'
+                           'Either an empty string to force tunneld device selection, or a UDID of a tunneld '
+                           'discovered device.\n'
+                           'The string may be suffixed with :PORT in case tunneld is not serving at the default port.')
         ]
 
     def rsd(self, ctx, param: str, value: Optional[Tuple[str, int]]) -> Optional[RemoteServiceDiscoveryService]:
         if value is not None:
-            with RemoteServiceDiscoveryService(value) as rsd:
-                self.service_provider = rsd
-                return self.service_provider
+            rsd = RemoteServiceDiscoveryService(value)
+            asyncio.run(rsd.connect(), debug=True)
+            self.service_provider = rsd
+            return self.service_provider
 
-    def tunneld(self, ctx, param: str, udid: Optional[str] = None) -> Optional[RemoteServiceDiscoveryService]:
+    async def _tunneld(self, udid: Optional[str] = None) -> Optional[RemoteServiceDiscoveryService]:
         if udid is None:
             return
 
-        rsds = get_tunneld_devices()
+        port = TUNNELD_DEFAULT_ADDRESS[1]
+        if ':' in udid:
+            udid, port = udid.split(':')
+
+        rsds = await async_get_tunneld_devices((TUNNELD_DEFAULT_ADDRESS[0], port))
         if len(rsds) == 0:
             raise NoDeviceConnectedError()
 
@@ -217,9 +258,12 @@ class RSDCommand(BaseCommand):
         for rsd in rsds:
             if rsd == self.service_provider:
                 continue
-            rsd.close()
+            await rsd.close()
 
         return self.service_provider
+
+    def tunneld(self, ctx, param: str, udid: Optional[str] = None) -> Optional[RemoteServiceDiscoveryService]:
+        return asyncio.run(self._tunneld(udid), debug=True)
 
 
 class Command(RSDCommand, LockdownCommand):

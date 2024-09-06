@@ -1,21 +1,26 @@
 import logging
 import posixpath
+import re
 import time
-from typing import Generator, List
+from typing import Callable, Generator, List, Optional
 
-from cmd2 import Cmd2ArgumentParser, with_argparser
 from pycrashreport.crash_report import get_crash_report_from_buf
+from xonsh.built_ins import XSH
+from xonsh.cli_utils import Annotated, Arg
 
-from pymobiledevice3.exceptions import AfcException
+from pymobiledevice3.exceptions import AfcException, NotificationTimeoutError, SysdiagnoseTimeoutError
 from pymobiledevice3.lockdown import LockdownClient
 from pymobiledevice3.lockdown_service_provider import LockdownServiceProvider
-from pymobiledevice3.services.afc import AfcService, AfcShell
+from pymobiledevice3.services.afc import AfcService, AfcShell, path_completer
+from pymobiledevice3.services.notification_proxy import NotificationProxyService
 from pymobiledevice3.services.os_trace import OsTraceService
 
 SYSDIAGNOSE_PROCESS_NAMES = ('sysdiagnose', 'sysdiagnosed')
+SYSDIAGNOSE_DIR = 'DiagnosticLogs/sysdiagnose'
+SYSDIAGNOSE_IN_PROGRESS_MAX_TTL_SECS = 600
 
-# on iOS17, we need to wait for a moment before tryint to fetch the sysdiagnose archive
-IOS17_SYSDIAGNOSE_DELAY = 1
+# on iOS17, we need to wait for a moment before trying to fetch the sysdiagnose archive
+IOS17_SYSDIAGNOSE_DELAY = 3
 
 
 class CrashReportsManager:
@@ -73,24 +78,23 @@ class CrashReportsManager:
         """
         return list(self.afc.dirlist(path, depth))[1:]  # skip the root path '/'
 
-    def pull(self, out: str, entry: str = '/', erase: bool = False) -> None:
+    def pull(self, out: str, entry: str = '/', erase: bool = False, match: Optional[str] = None) -> None:
         """
         Pull crash reports from the device.
         :param out: Directory to pull crash reports to.
         :param entry: File or Folder to pull.
         :param erase: Whether to erase the original file from the CrashReports directory.
+        :param match: Regex to match against file and directory names to pull.
         """
 
-        def log(src, dst):
+        def log(src: str, dst: str) -> None:
             self.logger.info(f'{src} --> {dst}')
+            if erase:
+                if not self.afc.isdir(src):
+                    self.afc.rm_single(src, force=True)
 
-        self.afc.pull(entry, out, callback=log)
-
-        if erase:
-            if posixpath.normpath(entry) in ('.', '/'):
-                self.clear()
-            else:
-                self.afc.rm(entry, force=True)
+        match = None if match is None else re.compile(match)
+        self.afc.pull(entry, out, match, callback=log)
 
     def flush(self) -> None:
         """ Trigger com.apple.crashreportmover to flush all products into CrashReports directory """
@@ -126,57 +130,97 @@ class CrashReportsManager:
                 else:
                     yield crash_report
 
-    def get_new_sysdiagnose(self, out: str, erase: bool = True) -> None:
+    def get_new_sysdiagnose(self, out: str, erase: bool = True, *, timeout: Optional[float] = None,
+                            callback: Optional[Callable[[float], None]] = None) -> None:
         """
         Monitor the creation of a newly created sysdiagnose archive and pull it
         :param out: filename
         :param erase: remove after pulling
+        :keyword timeout: Maximum time in seconds to wait for the completion of sysdiagnose archive
+            If None (default), waits indefinitely
+        :keyword callback: optional callback function (form: func(float)) that accepts the elapsed time so far
         """
-        sysdiagnose_filename = None
+        start_time = time.monotonic()
+        end_time = None
+        if timeout is not None:
+            end_time = start_time + timeout
+        sysdiagnose_filename = self._get_new_sysdiagnose_filename(end_time)
 
-        now = None
-        if isinstance(self.lockdown, LockdownClient):
-            now = self.lockdown.date
+        if callback is not None:
+            callback(time.monotonic() - start_time)
 
-        while sysdiagnose_filename is None:
-            self.afc.wait_exists('DiagnosticLogs/sysdiagnose')
-            for filename in self.ls('DiagnosticLogs/sysdiagnose'):
-                if now is not None and now.strftime('%Y.%m.%d') not in filename:
-                    # filter out files that weren't created now
-                    continue
-
-                # search for an IN_PROGRESS archive
-                if 'IN_PROGRESS_' in filename:
-                    for ext in self.IN_PROGRESS_SYSDIAGNOSE_EXTENSIONS:
-                        if filename.endswith(ext):
-                            sysdiagnose_filename = filename.rsplit(ext)[0]
-                            sysdiagnose_filename = sysdiagnose_filename.replace('IN_PROGRESS_', '')
-                            sysdiagnose_filename = f'{sysdiagnose_filename}.tar.gz'
-                            break
-                    break
         self.logger.info('sysdiagnose tarball creation has been started')
-        self.afc.wait_exists(sysdiagnose_filename)
-        time.sleep(IOS17_SYSDIAGNOSE_DELAY)
+        self._wait_for_sysdiagnose_to_finish(timeout)
+
+        if callback is not None:
+            callback(time.monotonic() - start_time)
+
         self.pull(out, entry=sysdiagnose_filename, erase=erase)
 
+        if callback is not None:
+            callback(time.monotonic() - start_time)
 
-parse_parser = Cmd2ArgumentParser(description='parse given crash report file')
-parse_parser.add_argument('filename')
+    def _wait_for_sysdiagnose_to_finish(self, end_time: Optional[float] = None) -> None:
+        with NotificationProxyService(self.lockdown, timeout=end_time) as service:
+            stop_notification = 'com.apple.sysdiagnose.sysdiagnoseStopped'
+            service.notify_register_dispatch(stop_notification)
+            try:
+                for event in service.receive_notification():
+                    if event['Name'] != stop_notification:
+                        continue
+                    self.logger.debug(f'Received {event}')
+                    time.sleep(IOS17_SYSDIAGNOSE_DELAY)
+                    break
+            except NotificationTimeoutError as e:
+                raise SysdiagnoseTimeoutError('Timeout waiting for sysdiagnose completion') from e
 
-clear_parser = Cmd2ArgumentParser(description='remove all crash reports')
+    def _get_new_sysdiagnose_filename(self, end_time: Optional[float] = None) -> str:
+        sysdiagnose_filename = None
+        excluded_temp_files = []
+
+        while sysdiagnose_filename is None:
+            try:
+                for filename in self.afc.listdir(SYSDIAGNOSE_DIR):
+                    # search for an IN_PROGRESS archive
+                    if filename not in excluded_temp_files and 'IN_PROGRESS_' in filename:
+                        for ext in self.IN_PROGRESS_SYSDIAGNOSE_EXTENSIONS:
+                            if filename.endswith(ext):
+                                delta = self.lockdown.date - \
+                                        self.afc.stat(posixpath.join(SYSDIAGNOSE_DIR, filename))['st_mtime']
+                                # Ignores IN_PROGRESS sysdiagnose files older than the defined time to live
+                                if delta.total_seconds() < SYSDIAGNOSE_IN_PROGRESS_MAX_TTL_SECS:
+                                    self.logger.debug(f'Detected in progress sysdiagnose {filename}')
+                                    sysdiagnose_filename = filename.rsplit(ext)[0]
+                                    sysdiagnose_filename = sysdiagnose_filename.replace('IN_PROGRESS_', '')
+                                    sysdiagnose_filename = f'{sysdiagnose_filename}.tar.gz'
+                                    return posixpath.join(SYSDIAGNOSE_DIR, sysdiagnose_filename)
+                                else:
+                                    self.logger.warning(f"Old sysdiagnose temp file ignored {filename}")
+                                    excluded_temp_files.append(filename)
+            except AfcException:
+                pass
+
+            if self._check_timeout(end_time):
+                raise SysdiagnoseTimeoutError('Timeout finding in-progress sysdiagnose filename')
+
+    def _check_timeout(self, end_time: Optional[float] = None) -> bool:
+        return end_time is not None and time.monotonic() > end_time
 
 
 class CrashReportsShell(AfcShell):
-    def __init__(self, lockdown: LockdownServiceProvider):
-        self.manager = CrashReportsManager(lockdown)
-        super().__init__(lockdown, service_name=self.manager.copy_mobile_service_name)
-        self.complete_parse = self._complete_first_arg
+    @classmethod
+    def create(cls, service_provider: LockdownServiceProvider, **kwargs):
+        manager = CrashReportsManager(service_provider)
+        XSH.ctx['_manager'] = manager
+        super(CrashReportsShell, CrashReportsShell).create(service_provider, service=manager.afc)
 
-    @with_argparser(parse_parser)
-    def do_parse(self, args) -> None:
-        self.poutput(
-            get_crash_report_from_buf(self.afc.get_file_contents(args.filename).decode(), filename=args.filename))
+    def _setup_shell_commands(self):
+        super()._setup_shell_commands()
+        self._register_arg_parse_alias('parse', self._do_parse)
+        self._register_arg_parse_alias('clear', self._do_clear)
 
-    @with_argparser(clear_parser)
-    def do_clear(self, args) -> None:
-        self.manager.clear()
+    def _do_parse(self, filename: Annotated[str, Arg(completer=path_completer)]) -> None:
+        print(get_crash_report_from_buf(self.afc.get_file_contents(filename).decode(), filename=filename))
+
+    def _do_clear(self) -> None:
+        XSH.ctx['_manager'].clear()

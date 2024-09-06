@@ -1,6 +1,7 @@
+import json
 import typing
 from dataclasses import dataclass
-from enum import Enum
+from enum import Enum, IntEnum
 
 from packaging.version import Version
 
@@ -10,7 +11,7 @@ from pymobiledevice3.services.remote_server import MessageAux, RemoteServer
 
 
 class SerializedObject:
-    def __init__(self, fields: typing.Mapping):
+    def __init__(self, fields: typing.MutableMapping):
         self._fields = fields
 
 
@@ -73,12 +74,98 @@ class AXAuditDeviceSetting_v1(SerializedObject):
         return f'<AXAuditDeviceSetting_v1 {self.key} = {self.value}>'
 
 
+class AuditType(IntEnum):
+    DYNAMIC_TEXT = 3001
+    DYNAMIC_TEXT_ALT = 3002
+    TEXT_CLIPPED = 3003
+    ELEMENT_DETECTION = 1000
+    SUFFICIENT_ELEMENT_DESCRIPTION = 5000
+    HIT_REGION = 100
+    CONTRAST = 12
+    CONTRAST_ALT = 13
+
+
+AUDIT_TYPE_DESCRIPTIONS = {
+    AuditType.DYNAMIC_TEXT: 'testTypeDynamicText',
+    AuditType.DYNAMIC_TEXT_ALT: 'testTypeDynamicText',
+    AuditType.TEXT_CLIPPED: 'testTypeTextClipped',
+    AuditType.ELEMENT_DETECTION: 'testTypeElementDetection',
+    AuditType.SUFFICIENT_ELEMENT_DESCRIPTION: 'testTypeSufficientElementDescription',
+    AuditType.HIT_REGION: 'testTypeHitRegion',
+    AuditType.CONTRAST: 'testTypeContrast',
+    AuditType.CONTRAST_ALT: 'testTypeContrast'
+}
+
+
+class AXAuditIssue_v1(SerializedObject):
+    FIELDS = ('ElementRectValue_v1', 'IssueClassificationValue_v1',
+              'FontSizeValue_v1', 'MLGeneratedDescriptionValue_v1', 'ElementLongDescExtraInfo_v1',
+              'BackgroundColorValue_v1', 'ForegroundColorValue_v1')
+
+    def __init__(self, fields):
+        super().__init__(fields)
+
+        for k in self.FIELDS:
+            if k not in self._fields:
+                self._fields[k] = None
+
+    @property
+    def rect(self) -> str:
+        return self._fields['ElementRectValue_v1']
+
+    @property
+    def issue_type(self) -> typing.Any:
+        issue_classification = self._fields['IssueClassificationValue_v1']
+        if issue_classification in AUDIT_TYPE_DESCRIPTIONS:
+            return AUDIT_TYPE_DESCRIPTIONS[AuditType(issue_classification)]
+        else:
+            return issue_classification
+
+    @property
+    def ml_generated_description(self) -> typing.Any:
+        return self._fields['MLGeneratedDescriptionValue_v1']
+
+    @property
+    def long_description_extra_info(self) -> typing.Any:
+        return self._fields['ElementLongDescExtraInfo_v1']
+
+    @property
+    def font_size(self) -> typing.Any:
+        return self._fields['FontSizeValue_v1']
+
+    @property
+    def foreground_color(self) -> typing.Any:
+        return self._fields['ForegroundColorValue_v1']
+
+    @property
+    def background_color(self) -> typing.Any:
+        return self._fields['BackgroundColorValue_v1']
+
+    def json(self) -> typing.Mapping:
+        resp = {
+            'element_rect_value': self.rect,
+            'issue_classification': self.issue_type,
+            'font_size': self.font_size,
+            'ml_generated_description': self.ml_generated_description,
+            'long_description_extra_info': self.long_description_extra_info
+        }
+        # Include foreground and background colors when issue type is 'testTypeContrast'
+        if self._fields['IssueClassificationValue_v1'] in {AuditType.CONTRAST, AuditType.CONTRAST_ALT}:
+            resp['foreground_color'] = self.foreground_color
+            resp['background_color'] = self.background_color
+        return resp
+
+    def __str__(self) -> str:
+        return json.dumps(self.json())
+
+
 SERIALIZABLE_OBJECTS = {
     'AXAuditDeviceSetting_v1': AXAuditDeviceSetting_v1,
     'AXAuditInspectorFocus_v1': AXAuditInspectorFocus_v1,
     'AXAuditElement_v1': AXAuditElement_v1,
     'AXAuditInspectorSection_v1': AXAuditInspectorSection_v1,
     'AXAuditElementAttribute_v1': AXAuditElementAttribute_v1,
+    'AXAuditIssue_v1': AXAuditIssue_v1
 }
 
 
@@ -126,6 +213,7 @@ class AccessibilityAudit(RemoteServer):
 
         # flush previously received messages
         self.recv_plist()
+        self.product_version = Version(lockdown.product_version)
         if Version(lockdown.product_version) >= Version('15.0'):
             self.recv_plist()
 
@@ -133,6 +221,25 @@ class AccessibilityAudit(RemoteServer):
     def capabilities(self) -> typing.List[str]:
         self.broadcast.deviceCapabilities()
         return self.recv_plist()[0]
+
+    def run_audit(self, value: typing.List) -> typing.List[AXAuditIssue_v1]:
+        if self.product_version >= Version('15.0'):
+            self.broadcast.deviceBeginAuditTypes_(MessageAux().append_obj(value))
+        else:
+            self.broadcast.deviceBeginAuditCaseIDs_(MessageAux().append_obj(value))
+
+        while True:
+            message = self.recv_plist()
+            if message[1] is None or message[0] != 'hostDeviceDidCompleteAuditCategoriesWithAuditIssues:':
+                continue
+            return deserialize_object(message[1])[0]['value']
+
+    def supported_audits_types(self) -> None:
+        if self.product_version >= Version('15.0'):
+            self.broadcast.deviceAllSupportedAuditTypes()
+        else:
+            self.broadcast.deviceAllAuditCaseIDs()
+        return deserialize_object(self.recv_plist()[0])
 
     @property
     def settings(self) -> typing.List[AXAuditDeviceSetting_v1]:

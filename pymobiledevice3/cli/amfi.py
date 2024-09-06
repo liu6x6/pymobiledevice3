@@ -10,14 +10,13 @@ logger = logging.getLogger(__name__)
 
 
 @click.group()
-def cli():
-    """ amfi cli """
+def cli() -> None:
     pass
 
 
 @cli.group()
-def amfi():
-    """ amfi options """
+def amfi() -> None:
+    """ Enable developer-mode or query its state """
     pass
 
 
@@ -28,7 +27,6 @@ def enable_developer_mode(service_provider: LockdownClient):
 
 
 @amfi.command(cls=Command)
-@click.option('--color/--no-color', default=True)
-def developer_mode_status(service_provider: LockdownClient, color):
+def developer_mode_status(service_provider: LockdownClient):
     """ query developer mode status """
-    print_json(service_provider.developer_mode_status, colored=color)
+    print_json(service_provider.developer_mode_status)

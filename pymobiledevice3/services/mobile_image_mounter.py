@@ -20,12 +20,19 @@ class MobileImageMounterService(LockdownService):
     # implemented in /usr/libexec/mobile_storage_proxy
     SERVICE_NAME = 'com.apple.mobile.mobile_image_mounter'
     RSD_SERVICE_NAME = 'com.apple.mobile.mobile_image_mounter.shim.remote'
+    IMAGE_TYPE: str = None
 
     def __init__(self, lockdown: LockdownServiceProvider):
         if isinstance(lockdown, LockdownClient):
             super().__init__(lockdown, self.SERVICE_NAME)
         else:
             super().__init__(lockdown, self.RSD_SERVICE_NAME)
+
+    def raise_if_cannot_mount(self) -> None:
+        if self.is_image_mounted(self.IMAGE_TYPE):
+            raise AlreadyMountedError()
+        if Version(self.lockdown.product_version).major >= 16 and not self.lockdown.developer_mode_status:
+            raise DeveloperModeIsNotEnabledError()
 
     def copy_devices(self) -> List[Mapping]:
         """ Copy mounted devices list. """
@@ -173,8 +180,7 @@ class DeveloperDiskImageMounter(MobileImageMounterService):
     IMAGE_TYPE = 'Developer'
 
     def mount(self, image: Path, signature: Path) -> None:
-        if self.is_image_mounted(self.IMAGE_TYPE):
-            raise AlreadyMountedError()
+        self.raise_if_cannot_mount()
 
         image = Path(image).read_bytes()
         signature = Path(signature).read_bytes()
@@ -188,10 +194,9 @@ class DeveloperDiskImageMounter(MobileImageMounterService):
 class PersonalizedImageMounter(MobileImageMounterService):
     IMAGE_TYPE = 'Personalized'
 
-    def mount(self, image: Path, build_manifest: Path, trust_cache: Path,
-              info_plist: Mapping = None) -> None:
-        if self.is_image_mounted(self.IMAGE_TYPE):
-            raise AlreadyMountedError()
+    async def mount(self, image: Path, build_manifest: Path, trust_cache: Path,
+                    info_plist: Mapping = None) -> None:
+        self.raise_if_cannot_mount()
 
         image = image.read_bytes()
         trust_cache = trust_cache.read_bytes()
@@ -203,7 +208,7 @@ class PersonalizedImageMounter(MobileImageMounterService):
             manifest = self.query_personalization_manifest('DeveloperDiskImage', hashlib.sha384(image).digest())
         except MissingManifestError:
             self.service = self.lockdown.start_lockdown_service(self.service_name)
-            manifest = self.get_manifest_from_tss(plistlib.loads(build_manifest.read_bytes()))
+            manifest = await self.get_manifest_from_tss(plistlib.loads(build_manifest.read_bytes()))
 
         self.upload_image(self.IMAGE_TYPE, image, manifest)
 
@@ -216,7 +221,7 @@ class PersonalizedImageMounter(MobileImageMounterService):
     def umount(self) -> None:
         self.unmount_image('/System/Developer')
 
-    def get_manifest_from_tss(self, build_manifest: Mapping) -> bytes:
+    async def get_manifest_from_tss(self, build_manifest: Mapping) -> bytes:
         request = TSSRequest()
 
         personalization_identifiers = self.query_personalization_identifiers()
@@ -286,7 +291,7 @@ class PersonalizedImageMounter(MobileImageMounterService):
 
             request.update({key: tss_entry})
 
-        response = request.send_receive()
+        response = await request.send_receive()
         return response['ApImg4Ticket']
 
 
@@ -304,7 +309,8 @@ def auto_mount_developer(lockdown: LockdownServiceProvider, xcode: str = None, v
         raise AlreadyMountedError()
 
     if version is None:
-        version = lockdown.product_version
+        version = Version(lockdown.product_version)
+        version = f'{version.major}.{version.minor}'
     image_dir = f'{xcode}/Contents/Developer/Platforms/iPhoneOS.platform/DeviceSupport/{version}'
     image_path = f'{image_dir}/DeveloperDiskImage.dmg'
     signature = f'{image_path}.signature'
@@ -329,7 +335,7 @@ def auto_mount_developer(lockdown: LockdownServiceProvider, xcode: str = None, v
     image_mounter.mount(image_path, signature)
 
 
-def auto_mount_personalized(lockdown: LockdownServiceProvider) -> None:
+async def auto_mount_personalized(lockdown: LockdownServiceProvider) -> None:
     local_path = get_home_folder() / 'Xcode_iOS_DDI_Personalized'
     local_path.mkdir(parents=True, exist_ok=True)
 
@@ -346,11 +352,11 @@ def auto_mount_personalized(lockdown: LockdownServiceProvider) -> None:
         build_manifest.write_bytes(personalized_image.build_manifest)
         trustcache.write_bytes(personalized_image.trustcache)
 
-    PersonalizedImageMounter(lockdown=lockdown).mount(image, build_manifest, trustcache)
+    await PersonalizedImageMounter(lockdown=lockdown).mount(image, build_manifest, trustcache)
 
 
-def auto_mount(lockdown: LockdownServiceProvider, xcode: str = None, version: str = None) -> None:
+async def auto_mount(lockdown: LockdownServiceProvider, xcode: str = None, version: str = None) -> None:
     if Version(lockdown.product_version) < Version('17.0'):
         auto_mount_developer(lockdown, xcode=xcode, version=version)
     else:
-        auto_mount_personalized(lockdown)
+        await auto_mount_personalized(lockdown)

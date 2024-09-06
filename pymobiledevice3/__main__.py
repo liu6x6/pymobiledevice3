@@ -1,39 +1,17 @@
-#!/usr/bin/env python3
 import logging
+import sys
 import traceback
 
 import click
 import coloredlogs
 
-from pymobiledevice3.cli.activation import cli as activation_cli
-from pymobiledevice3.cli.afc import cli as afc_cli
-from pymobiledevice3.cli.amfi import cli as amfi_cli
-from pymobiledevice3.cli.apps import cli as apps_cli
-from pymobiledevice3.cli.backup import cli as backup_cli
-from pymobiledevice3.cli.bonjour import cli as bonjour_cli
-from pymobiledevice3.cli.companion_proxy import cli as companion_cli
-from pymobiledevice3.cli.crash import cli as crash_cli
-from pymobiledevice3.cli.developer import cli as developer_cli
-from pymobiledevice3.cli.diagnostics import cli as diagnostics_cli
-from pymobiledevice3.cli.lockdown import cli as lockdown_cli
-from pymobiledevice3.cli.mounter import cli as mounter_cli
-from pymobiledevice3.cli.notification import cli as notification_cli
-from pymobiledevice3.cli.pcap import cli as pcap_cli
-from pymobiledevice3.cli.power_assertion import cli as power_assertion_cli
-from pymobiledevice3.cli.processes import cli as ps_cli
-from pymobiledevice3.cli.profile import cli as profile_cli
-from pymobiledevice3.cli.provision import cli as provision_cli
-from pymobiledevice3.cli.remote import cli as remote_cli
-from pymobiledevice3.cli.restore import cli as restore_cli
-from pymobiledevice3.cli.springboard import cli as springboard_cli
-from pymobiledevice3.cli.syslog import cli as syslog_cli
-from pymobiledevice3.cli.usbmux import cli as usbmux_cli
-from pymobiledevice3.cli.webinspector import cli as webinspector_cli
-from pymobiledevice3.exceptions import AccessDeniedError, ConnectionFailedError, DeveloperModeError, \
-    DeveloperModeIsNotEnabledError, DeviceHasPasscodeSetError, DeviceNotFoundError, InternalError, \
-    InvalidServiceError, MessageNotSupportedError, MissingValueError, NoDeviceConnectedError, NoDeviceSelectedError, \
-    NotPairedError, PairingDialogResponsePendingError, PasswordRequiredError, SetProhibitedError, \
-    TunneldConnectionError, UserDeniedPairingError
+from pymobiledevice3.exceptions import AccessDeniedError, CloudConfigurationAlreadyPresentError, \
+    ConnectionFailedToUsbmuxdError, DeprecationError, DeveloperModeError, DeveloperModeIsNotEnabledError, \
+    DeviceHasPasscodeSetError, DeviceNotFoundError, FeatureNotSupportedError, InternalError, InvalidServiceError, \
+    MessageNotSupportedError, MissingValueError, NoDeviceConnectedError, NotEnoughDiskSpaceError, NotPairedError, \
+    OSNotSupportedError, PairingDialogResponsePendingError, PasswordRequiredError, RSDRequiredError, \
+    SetProhibitedError, TunneldConnectionError, UserDeniedPairingError
+from pymobiledevice3.osu.os_utils import get_os_utils
 
 coloredlogs.install(level=logging.INFO)
 
@@ -51,6 +29,10 @@ logger = logging.getLogger(__name__)
 
 INVALID_SERVICE_MESSAGE = """Failed to start service. Possible reasons are:
 - If you were trying to access a developer service (developer subcommand):
+    - If your device iOS version >= 15.0:
+        - Make sure you first enabled "Developer Mode" via:
+          > python3 -m pymobiledevice3 amfi enable-developer-mode
+
     - Make sure the DeveloperDiskImage/PersonalizedImage is mounted via:
       > python3 -m pymobiledevice3 mounter auto-mount
 
@@ -64,17 +46,68 @@ INVALID_SERVICE_MESSAGE = """Failed to start service. Possible reasons are:
   https://github.com/doronz88/pymobiledevice3/issues/new?assignees=&labels=&projects=&template=bug_report.md&title=
 """
 
+CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'], max_content_width=400)
 
+# Mapping of index options to import file names
+CLI_GROUPS = {
+    'activation': 'activation',
+    'afc': 'afc',
+    'amfi': 'amfi',
+    'apps': 'apps',
+    'backup2': 'backup',
+    'bonjour': 'bonjour',
+    'companion': 'companion_proxy',
+    'crash': 'crash',
+    'developer': 'developer',
+    'diagnostics': 'diagnostics',
+    'lockdown': 'lockdown',
+    'mounter': 'mounter',
+    'notification': 'notification',
+    'pcap': 'pcap',
+    'power-assertion': 'power_assertion',
+    'processes': 'processes',
+    'profile': 'profile',
+    'provision': 'provision',
+    'remote': 'remote',
+    'restore': 'restore',
+    'springboard': 'springboard',
+    'syslog': 'syslog',
+    'usbmux': 'usbmux',
+    'webinspector': 'webinspector',
+    'version': 'version',
+}
+
+
+class Pmd3Cli(click.Group):
+    def list_commands(self, ctx):
+        return CLI_GROUPS.keys()
+
+    def get_command(self, ctx, name):
+        if name not in CLI_GROUPS.keys():
+            ctx.fail(f'No such command {name!r}.')
+        mod = __import__(f'pymobiledevice3.cli.{CLI_GROUPS[name]}', None, None, ['cli'])
+        command = mod.cli.get_command(ctx, name)
+        # Some cli groups have different names than the index
+        if not command:
+            command_name = mod.cli.list_commands(ctx)[0]
+            command = mod.cli.get_command(ctx, command_name)
+        return command
+
+
+@click.command(cls=Pmd3Cli, context_settings=CONTEXT_SETTINGS)
 def cli():
-    cli_commands = click.CommandCollection(sources=[
-        developer_cli, mounter_cli, apps_cli, profile_cli, lockdown_cli, diagnostics_cli, syslog_cli, pcap_cli,
-        crash_cli, afc_cli, ps_cli, notification_cli, usbmux_cli, power_assertion_cli, springboard_cli,
-        provision_cli, backup_cli, restore_cli, activation_cli, companion_cli, webinspector_cli, amfi_cli, bonjour_cli,
-        remote_cli
-    ])
-    cli_commands.context_settings = dict(help_option_names=['-h', '--help'])
+    """
+    \b
+    Interact with a connected iDevice (iPhone, iPad, ...)
+    For more information please look at:
+        https://github.com/doronz88/pymobiledevice3
+    """
+    pass
+
+
+def main() -> None:
     try:
-        cli_commands()
+        cli()
     except NoDeviceConnectedError:
         logger.error('Device is not connected')
     except ConnectionAbortedError:
@@ -93,7 +126,7 @@ def cli():
         logger.error('Cannot enable developer-mode when passcode is set')
     except DeveloperModeError as e:
         logger.error(f'Failed to enable developer-mode. Error: {e}')
-    except ConnectionFailedError:
+    except ConnectionFailedToUsbmuxdError:
         logger.error('Failed to connect to usbmuxd socket. Make sure it\'s running.')
     except MessageNotSupportedError:
         logger.error('Message not supported for this iOS version')
@@ -103,14 +136,28 @@ def cli():
     except DeveloperModeIsNotEnabledError:
         logger.error('Developer Mode is disabled. You can try to enable it using: '
                      'python3 -m pymobiledevice3 amfi enable-developer-mode')
-    except InvalidServiceError:
+    except (InvalidServiceError, RSDRequiredError) as e:
+        should_retry_over_tunneld = False
+        if isinstance(e, RSDRequiredError):
+            logger.warning('Trying again over tunneld since RSD is required for this command')
+            should_retry_over_tunneld = True
+        elif (e.identifier is not None) and ('developer' in sys.argv) and ('--tunnel' not in sys.argv):
+            logger.warning('Got an InvalidServiceError. Trying again over tunneld since it is a developer command')
+            should_retry_over_tunneld = True
+        if should_retry_over_tunneld:
+            if '--' in sys.argv:
+                escape_sequence = sys.argv.index('--')
+                before = sys.argv[:escape_sequence]
+                after = sys.argv[escape_sequence:]
+                sys.argv = before + ['--tunnel', e.identifier] + after
+            else:
+                sys.argv += ['--tunnel', e.identifier]
+            return main()
         logger.error(INVALID_SERVICE_MESSAGE)
-    except NoDeviceSelectedError:
-        return
     except PasswordRequiredError:
         logger.error('Device is password protected. Please unlock and retry')
     except AccessDeniedError:
-        logger.error('This command requires root privileges. Consider retrying with "sudo".')
+        logger.error(get_os_utils().access_denied_error)
     except BrokenPipeError:
         traceback.print_exc()
     except TunneldConnectionError:
@@ -119,7 +166,23 @@ def cli():
             'sudo python3 -m pymobiledevice3 remote tunneld')
     except DeviceNotFoundError as e:
         logger.error(f'Device not found: {e.udid}')
+    except NotEnoughDiskSpaceError:
+        logger.error('Not enough disk space')
+    except DeprecationError:
+        logger.error('failed to query MobileGestalt, MobileGestalt deprecated (iOS >= 17.4).')
+    except OSNotSupportedError as e:
+        logger.error(
+            f'Unsupported OS - {e.os_name}. To add support, consider contributing at '
+            f'https://github.com/doronz88/pymobiledevice3.')
+    except CloudConfigurationAlreadyPresentError:
+        logger.error('A cloud configuration is already present on device. You must first erase the device in order '
+                     'to install new one:\n'
+                     '> pymobiledevice3 profile erase-device')
+    except FeatureNotSupportedError as e:
+        logger.error(
+            f'Missing implementation of `{e.feature}` on `{e.os_name}`. To add support, consider contributing at '
+            f'https://github.com/doronz88/pymobiledevice3.')
 
 
 if __name__ == '__main__':
-    cli()
+    main()

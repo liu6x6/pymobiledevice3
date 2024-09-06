@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
 import enum
-import socket
-import struct
 from typing import Generator, Optional
 
+import pcapng.blocks as blocks
 from construct import Byte, Bytes, Container, CString, Int16ub, Int32ub, Int32ul, Padded, Seek, Struct, this
+from pcapng import FileWriter
 
 from pymobiledevice3.lockdown import LockdownClient
 from pymobiledevice3.lockdown_service_provider import LockdownServiceProvider
@@ -294,8 +294,6 @@ typedef struct pcaprec_hdr_s {
 LINKTYPE_ETHERNET = 1
 LINKTYPE_RAW = 101
 
-PCAP_HEADER = struct.pack('<LHHLLLL', 0xa1b2c3d4, 2, 4, 0, 0, 65535, LINKTYPE_ETHERNET)
-PACKET_HEADER = '<LLLL'
 ETHERNET_HEADER = b'\xBE\xEF' * 6 + b'\x08\x00'
 
 device_packet_struct = Struct(
@@ -319,6 +317,12 @@ device_packet_struct = Struct(
     Seek(this.header_length),
     'data' / Bytes(this.packet_length),
 )
+
+
+class CrossPlatformAddressFamily(enum.IntEnum):
+    AF_UNSPEC = 0
+    AF_INET = 2
+    AF_INET6 = 30
 
 
 class PcapdService(LockdownService):
@@ -355,7 +359,7 @@ class PcapdService(LockdownService):
                     continue
 
             packet.interface_type = INTERFACE_NAMES(packet.interface_type)
-            packet.protocol_family = socket.AddressFamily(packet.protocol_family)
+            packet.protocol_family = CrossPlatformAddressFamily(packet.protocol_family)
 
             if not packet.frame_pre_length:
                 # Add fake ethernet header for pdp packets.
@@ -367,11 +371,29 @@ class PcapdService(LockdownService):
 
             packet_index += 1
 
-    @staticmethod
-    def write_to_pcap(out, packet_generator):
-        out.write(PCAP_HEADER)
+    def write_to_pcap(self, out, packet_generator) -> None:
+        shb = blocks.SectionHeader(
+            options={
+                'shb_hardware': 'artificial',
+                'shb_os': 'iOS',
+                'shb_userappl': 'pymobiledevice3',
+            }
+        )
+        shb.new_member(
+            blocks.InterfaceDescription,
+            link_type=1,
+            options={
+                'if_description': 'iOS Packet Capture',
+                'if_os': f'iOS {self.lockdown.product_version}'
+            },
+        )
+        writer = FileWriter(out, shb)
+
         for packet in packet_generator:
-            length = len(packet.data)
-            pkthdr = struct.pack(PACKET_HEADER, packet.seconds, packet.microseconds, length, length)
-            data = pkthdr + packet.data
-            out.write(data)
+            enhanced_packet = shb.new_member(blocks.EnhancedPacket, options={
+                'opt_comment': f'PID: {packet.pid}, ProcName: {packet.comm}, EPID: {packet.epid}, '
+                               f'EProcName: {packet.ecomm}, SVC: {packet.svc}'
+            })
+
+            enhanced_packet.packet_data = packet.data
+            writer.write_block(enhanced_packet)

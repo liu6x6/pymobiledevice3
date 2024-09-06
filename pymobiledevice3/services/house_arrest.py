@@ -23,7 +23,10 @@ class HouseArrestService(AfcService):
         else:
             cmd = VEND_CONTAINER
         self.documents_only = documents_only
-        self.send_command(bundle_id, cmd)
+        try:
+            self.send_command(bundle_id, cmd)
+        except PyMobileDevice3Exception:
+            self.close()
 
     def send_command(self, bundle_id: str, cmd: str = 'VendContainer') -> None:
         response = self.service.send_recv_plist({'Command': cmd, 'Identifier': bundle_id})
@@ -32,7 +35,4 @@ class HouseArrestService(AfcService):
             raise PyMobileDevice3Exception(error)
 
     def shell(self) -> None:
-        afc_shell = AfcShell(self.lockdown, afc_service=self)
-        if self.documents_only:
-            afc_shell.do_cd(DOCUMENTS_ROOT)
-        afc_shell.cmdloop()
+        AfcShell.create(self.lockdown, service=self, auto_cd=DOCUMENTS_ROOT if self.documents_only else '/')

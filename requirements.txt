@@ -1,6 +1,5 @@
 construct>=2.9.29
 asn1
-termcolor
 click
 coloredlogs
 IPython
@@ -14,30 +13,31 @@ pykdebugparser>=1.2.4
 pyusb>=1.2.1
 tqdm
 requests
-cmd2
+xonsh
+parameter_decorators
 packaging
 pygnuutils>=0.0.7
 cryptography>=41.0.1
-pycrashreport>=1.0.6
-fastapi[all]
+pycrashreport>=1.2.4
+fastapi[all]>=0.93.0
 uvicorn>=0.15.0
 starlette
 wsproto
 nest_asyncio>=1.5.5
 Pillow
-inquirer3>=0.1.0
-pyimg4>=0.8
-ipsw_parser>=1.1.2
+inquirer3>=0.6.0
+ipsw_parser>=1.3.4
 remotezip
-zeroconf
+zeroconf>=0.132.2
 ifaddr
 hyperframe
 srptools
-qh3>=0.11.5
+qh3>=1.0.0,<2
 developer_disk_image>=0.0.2
 opack
 psutil
-pytun-pmd3>=1.0.0 ; platform_system != "Windows"
+pytun-pmd3>=2.0.9
 aiofiles
-gnureadline ; platform_system != "Windows"
-pyreadline3 ; platform_system == "Windows"
+prompt_toolkit
+sslpsk-pmd3>=1.0.3
+python-pcapng>=2.1.1

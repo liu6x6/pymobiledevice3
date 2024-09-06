@@ -11,73 +11,67 @@ logger = logging.getLogger(__name__)
 
 
 @click.group()
-def cli():
-    """ apps cli """
+def cli() -> None:
     pass
 
 
 @cli.group()
-def diagnostics():
-    """ diagnostics options """
+def diagnostics() -> None:
+    """ Reboot/Shutdown device or access other diagnostics services """
     pass
 
 
 @diagnostics.command('restart', cls=Command)
 def diagnostics_restart(service_provider: LockdownClient):
-    """ restart device """
+    """ Restart device """
     DiagnosticsService(lockdown=service_provider).restart()
 
 
 @diagnostics.command('shutdown', cls=Command)
 def diagnostics_shutdown(service_provider: LockdownClient):
-    """ shutdown device """
+    """ Shutdown device """
     DiagnosticsService(lockdown=service_provider).shutdown()
 
 
 @diagnostics.command('sleep', cls=Command)
 def diagnostics_sleep(service_provider: LockdownClient):
-    """ put device into sleep """
+    """ Put device into sleep """
     DiagnosticsService(lockdown=service_provider).sleep()
 
 
 @diagnostics.command('info', cls=Command)
-@click.option('--color/--no-color', default=True)
-def diagnostics_info(service_provider: LockdownClient, color):
-    """ get diagnostics info """
-    print_json(DiagnosticsService(lockdown=service_provider).info(), colored=color)
+def diagnostics_info(service_provider: LockdownClient):
+    """ Get diagnostics info """
+    print_json(DiagnosticsService(lockdown=service_provider).info())
 
 
 @diagnostics.command('ioregistry', cls=Command)
 @click.option('--plane')
 @click.option('--name')
 @click.option('--ioclass')
-@click.option('--color/--no-color', default=True)
-def diagnostics_ioregistry(service_provider: LockdownClient, plane, name, ioclass, color):
-    """ get ioregistry info """
-    print_json(DiagnosticsService(lockdown=service_provider).ioregistry(plane=plane, name=name, ioclass=ioclass),
-               colored=color)
+def diagnostics_ioregistry(service_provider: LockdownClient, plane, name, ioclass):
+    """ Get ioregistry info """
+    print_json(DiagnosticsService(lockdown=service_provider).ioregistry(plane=plane, name=name, ioclass=ioclass))
 
 
 @diagnostics.command('mg', cls=Command)
 @click.argument('keys', nargs=-1, default=None)
-@click.option('--color/--no-color', default=True)
-def diagnostics_mg(service_provider: LockdownClient, keys, color):
-    """ get MobileGestalt key values from given list. If empty, return all known. """
-    print_json(DiagnosticsService(lockdown=service_provider).mobilegestalt(keys=keys), colored=color)
+def diagnostics_mg(service_provider: LockdownClient, keys):
+    """ Get MobileGestalt key values from given list. If empty, return all known. """
+    print_json(DiagnosticsService(lockdown=service_provider).mobilegestalt(keys=keys))
 
 
 @diagnostics.group('battery')
 def diagnostics_battery():
-    """ battery options """
+    """ Battery options """
     pass
 
 
 @diagnostics_battery.command('single', cls=Command)
-@click.option('--color/--no-color', default=True)
-def diagnostics_battery_single(service_provider: LockdownClient, color):
+def diagnostics_battery_single(service_provider: LockdownClient):
     """ get single snapshot of battery data """
     raw_info = DiagnosticsService(lockdown=service_provider).get_battery()
-    print_json(raw_info, colored=color)
+    print_json(raw_info)
 
 
 @diagnostics_battery.command('monitor', cls=Command)

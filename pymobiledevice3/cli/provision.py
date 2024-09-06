@@ -11,14 +11,13 @@ logger = logging.getLogger(__name__)
 
 
 @click.group()
-def cli():
-    """ privision cli """
+def cli() -> None:
     pass
 
 
 @cli.group()
-def provision():
-    """ privision options """
+def provision() -> None:
+    """ Manage installed provision profiles """
     pass
 
 
@@ -44,10 +43,9 @@ def provision_clear(service_provider: LockdownClient):
 
 
 @provision.command('list', cls=Command)
-@click.option('--color/--no-color', default=True)
-def provision_list(service_provider: LockdownClient, color):
+def provision_list(service_provider: LockdownClient):
     """ list installed provision profiles """
-    print_json([p.plist for p in MisagentService(lockdown=service_provider).copy_all()], colored=color)
+    print_json([p.plist for p in MisagentService(lockdown=service_provider).copy_all()])
 
 
 @provision.command('dump', cls=Command)

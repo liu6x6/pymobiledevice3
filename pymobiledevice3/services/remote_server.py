@@ -1,7 +1,13 @@
+<<<<<<< HEAD
 import os
+=======
+import copy
+>>>>>>> master
 import io
+import os
 import plistlib
 import typing
+import uuid
 from functools import partial
 from pprint import pprint
 from queue import Empty, Queue
@@ -214,6 +220,10 @@ class NSNull:
 
 class NSError:
     @staticmethod
+    def encode_archive(archive_obj):
+        return archiver.archive(archive_obj)
+
+    @staticmethod
     def decode_archive(archive_obj):
         user_info = archive_obj.decode('NSUserInfo')
         if user_info.get('NSLocalizedDescription', '').endswith(' - it does not respond to the selector'):
@@ -232,6 +242,106 @@ class NSUUID(uuid.UUID):
 
 
 
+class NSUUID(uuid.UUID):
+    @staticmethod
+    def uuid4():
+        """Generate a random UUID."""
+        return NSUUID(bytes=os.urandom(16))
+
+    def encode_archive(self, archive_obj: archiver.ArchivingObject):
+        archive_obj.encode('NS.uuidbytes', self.bytes)
+
+    @staticmethod
+    def decode_archive(archive_obj: archiver.ArchivedObject):
+        return NSUUID(bytes=archive_obj.decode('NS.uuidbytes'))
+
+
+class NSURL:
+    def __init__(self, base, relative):
+        self.base = base
+        self.relative = relative
+
+    def encode_archive(self, archive_obj: archiver.ArchivingObject):
+        archive_obj.encode('NS.base', self.base)
+        archive_obj.encode('NS.relative', self.relative)
+
+    @staticmethod
+    def decode_archive(archive_obj: archiver.ArchivedObject):
+        return NSURL(archive_obj.decode('NS.base'), archive_obj.decode('NS.relative'))
+
+
+class NSValue:
+    @staticmethod
+    def decode_archive(archive_obj: archiver.ArchivedObject):
+        return archive_obj.decode('NS.rectval')
+
+
+class NSMutableData:
+    @staticmethod
+    def decode_archive(archive_obj: archiver.ArchivedObject):
+        return archive_obj.decode('NS.data')
+
+
+class NSMutableString:
+    @staticmethod
+    def decode_archive(archive_obj: archiver.ArchivedObject):
+        return archive_obj.decode('NS.string')
+
+
+class XCTestConfiguration:
+    _default = {
+        # 'testBundleURL': UID(3),
+        # 'sessionIdentifier': UID(8), # UUID
+        'aggregateStatisticsBeforeCrash': {
+            'XCSuiteRecordsKey': {}
+        },
+        'automationFrameworkPath': '/Developer/Library/PrivateFrameworks/XCTAutomationSupport.framework',
+        'baselineFileRelativePath': None,
+        'baselineFileURL': None,
+        'defaultTestExecutionTimeAllowance': None,
+        'disablePerformanceMetrics': False,
+        'emitOSLogs': False,
+        'formatVersion': plistlib.UID(2),  # store in UID
+        'gatherLocalizableStringsData': False,
+        'initializeForUITesting': True,
+        'maximumTestExecutionTimeAllowance': None,
+        'productModuleName': 'WebDriverAgentRunner',  # set to other value is also OK
+        'randomExecutionOrderingSeed': None,
+        'reportActivities': True,
+        'reportResultsToIDE': True,
+        'systemAttachmentLifetime': 2,
+        'targetApplicationArguments': [],  # maybe useless
+        'targetApplicationBundleID': None,
+        'targetApplicationEnvironment': None,
+        'targetApplicationPath': '/whatever-it-does-not-matter/but-should-not-be-empty',
+        'testApplicationDependencies': {},
+        'testApplicationUserOverrides': None,
+        'testBundleRelativePath': None,
+        'testExecutionOrdering': 0,
+        'testTimeoutsEnabled': False,
+        'testsDrivenByIDE': False,
+        'testsMustRunOnMainThread': True,
+        'testsToRun': None,
+        'testsToSkip': None,
+        'treatMissingBaselinesAsFailures': False,
+        'userAttachmentLifetime': 1
+    }
+
+    def __init__(self, kv: dict):
+        assert 'testBundleURL' in kv
+        assert 'sessionIdentifier' in kv
+        self._config = copy.deepcopy(self._default)
+        self._config.update(kv)
+
+    def encode_archive(self, archive_obj: archiver.ArchivingObject):
+        for k, v in self._config.items():
+            archive_obj.encode(k, v)
+
+    @staticmethod
+    def decode_archive(archive_obj: archiver.ArchivedObject):
+        return archive_obj.object
+
+
 archiver.update_class_map({'DTSysmonTapMessage': DTTapMessage,
                            'DTTapHeartbeatMessage': DTTapMessage,
                            'DTTapStatusMessage': DTTapMessage,
@@ -242,6 +352,7 @@ archiver.update_class_map({'DTSysmonTapMessage': DTTapMessage,
                            'NSError': NSError,
                            'NSUUID': NSUUID,
                            'NSURL': NSURL,
+<<<<<<< HEAD
                            'XCTCapabilities': XCTCapabilities,
                            "NSSet": set,
                            'XCTAttachmentFutureMetadata': XCTAttachmentFutureMetadata,
@@ -249,20 +360,34 @@ archiver.update_class_map({'DTSysmonTapMessage': DTTapMessage,
                            'XCTRepetitionPolicy': XCTRepetitionPolicy,
                            'XCTRuntimeIssueDetectionPolicy': XCTRuntimeIssueDetectionPolicy,
                            })
+=======
+                           'NSValue': NSValue,
+                           'NSMutableData': NSMutableData,
+                           'NSMutableString': NSMutableString,
+                           'XCTestConfiguration': XCTestConfiguration})
+
+archiver.Archive.inline_types = list(set(archiver.Archive.inline_types + [bytes]))
+>>>>>>> master
 
 
 class Channel(int):
     @classmethod
-    def create(cls, value: int, service):
+    def create(cls, value: int, service: 'RemoteServer'):
         channel = cls(value)
         channel._service = service
         return channel
+
+    def receive_key_value(self):
+        return self._service.recv_plist(self)
 
     def receive_plist(self):
         return self._service.recv_plist(self)[0]
 
     def receive_message(self):
         return self._service.recv_message(self)[0]
+
+    def send_message(self, selector: str, args: MessageAux = None, expects_reply: bool = True):
+        self._service.send_message(self, selector, args, expects_reply=expects_reply)
 
     @staticmethod
     def _sanitize_name(name: str):
@@ -391,6 +516,10 @@ class RemoteServer(LockdownService):
         self.supported_identifiers = aux[0].value
 
     def make_channel(self, identifier) -> Channel:
+<<<<<<< HEAD
+=======
+        # NOTE: There is also identifier not in self.supported_identifiers
+>>>>>>> master
         # assert identifier in self.supported_identifiers
         if identifier in self.channel_cache:
             return self.channel_cache[identifier]
@@ -506,6 +635,19 @@ class RemoteServer(LockdownService):
         self.perform_handshake()
         return self
 
+    def close(self):
+        aux = MessageAux()
+        codes = [code for code in self.channel_messages.keys() if code > 0]
+        if codes:
+            for code in codes:
+                aux.append_int(code)
+            try:
+                self.send_message(self.BROADCAST_CHANNEL, '_channelCanceled:', aux, expects_reply=False)
+            except OSError:
+                # ignore: OSError: [Errno 9] Bad file descriptor
+                pass
+        super().close()
+
 
 class Tap:
     def __init__(self, dvt, channel_name: str, config: typing.Mapping):
@@ -524,7 +666,7 @@ class Tap:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.channel.stop(expects_reply=False)
+        self.channel.clear(expects_reply=False)
 
     def __iter__(self):
         while True:

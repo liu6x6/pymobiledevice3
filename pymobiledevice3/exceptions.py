@@ -2,18 +2,19 @@ __all__ = [
     'PyMobileDevice3Exception', 'DeviceVersionNotSupportedError', 'IncorrectModeError',
     'NotTrustedError', 'PairingError', 'NotPairedError', 'CannotStopSessionError',
     'PasswordRequiredError', 'StartServiceError', 'FatalPairingError', 'NoDeviceConnectedError', 'DeviceNotFoundError',
-    'TunneldConnectionError',
-    'MuxException',
+    'TunneldConnectionError', 'ConnectionFailedToUsbmuxdError', 'MuxException', 'InvalidConnectionError',
     'MuxVersionError', 'ArgumentError', 'AfcException', 'AfcFileNotFoundError', 'DvtException', 'DvtDirListError',
     'NotMountedError', 'AlreadyMountedError', 'UnsupportedCommandError', 'ExtractingStackshotError',
     'ConnectionTerminatedError', 'WirError', 'WebInspectorNotEnabledError', 'RemoteAutomationNotEnabledError',
     'ArbitrationError', 'InternalError', 'DeveloperModeIsNotEnabledError', 'DeviceAlreadyInUseError', 'LockdownError',
     'PairingDialogResponsePendingError', 'UserDeniedPairingError', 'InvalidHostIDError', 'SetProhibitedError',
     'MissingValueError', 'PasscodeRequiredError', 'AmfiError', 'DeviceHasPasscodeSetError', 'NotificationTimeoutError',
-    'DeveloperModeError', 'ProfileError', 'IRecvError', 'IRecvNoDeviceConnectedError',
-    'NoDeviceSelectedError', 'MessageNotSupportedError', 'InvalidServiceError', 'InspectorEvaluateError',
+    'DeveloperModeError', 'ProfileError', 'IRecvError', 'IRecvNoDeviceConnectedError', 'UnrecognizedSelectorError',
+    'MessageNotSupportedError', 'InvalidServiceError', 'InspectorEvaluateError',
     'LaunchingApplicationError', 'BadCommandError', 'BadDevError', 'ConnectionFailedError', 'CoreDeviceError',
-    'AccessDeniedError'
+    'AccessDeniedError', 'RSDRequiredError', 'SysdiagnoseTimeoutError', 'GetProhibitedError',
+    'FeatureNotSupportedError', 'OSNotSupportedError', 'DeprecationError', 'NotEnoughDiskSpaceError',
+    'CloudConfigurationAlreadyPresentError'
 ]
 
 from typing import List, Optional
@@ -96,6 +97,10 @@ class BadDevError(MuxException):
 
 
 class ConnectionFailedError(MuxException):
+    pass
+
+
+class ConnectionFailedToUsbmuxdError(ConnectionFailedError):
     pass
 
 
@@ -221,6 +226,13 @@ class DeveloperModeError(PyMobileDevice3Exception):
 
 class LockdownError(PyMobileDevice3Exception):
     """ lockdown general error """
+
+    def __init__(self, message: str, identifier: Optional[str] = None) -> None:
+        super().__init__(message)
+        self.identifier = identifier
+
+
+class GetProhibitedError(LockdownError):
     pass
 
 
@@ -271,15 +283,15 @@ class ProfileError(PyMobileDevice3Exception):
     pass
 
 
+class CloudConfigurationAlreadyPresentError(ProfileError):
+    pass
+
+
 class IRecvError(PyMobileDevice3Exception):
     pass
 
 
 class IRecvNoDeviceConnectedError(IRecvError):
-    pass
-
-
-class NoDeviceSelectedError(PyMobileDevice3Exception):
     pass
 
 
@@ -316,6 +328,10 @@ class AppInstallError(PyMobileDevice3Exception):
     pass
 
 
+class AppNotInstalledError(PyMobileDevice3Exception):
+    pass
+
+
 class CoreDeviceError(PyMobileDevice3Exception):
     pass
 
@@ -327,3 +343,50 @@ class AccessDeniedError(PyMobileDevice3Exception):
 
 class NoSuchBuildIdentityError(PyMobileDevice3Exception):
     pass
+
+
+class MobileActivationException(PyMobileDevice3Exception):
+    """ Mobile activation can not be done """
+    pass
+
+
+class NotEnoughDiskSpaceError(PyMobileDevice3Exception):
+    """ Computer does not have enough disk space for the intended operation """
+    pass
+
+
+class DeprecationError(PyMobileDevice3Exception):
+    """ The requested action/service/method is deprecated """
+    pass
+
+
+class RSDRequiredError(PyMobileDevice3Exception):
+    """ The requested action requires an RSD object """
+
+    def __init__(self, identifier: str) -> None:
+        self.identifier = identifier
+        super().__init__()
+
+
+class SysdiagnoseTimeoutError(PyMobileDevice3Exception, TimeoutError):
+    """ Timeout collecting new sysdiagnose archive """
+    pass
+
+
+class SupportError(PyMobileDevice3Exception):
+    def __init__(self, os_name):
+        self.os_name = os_name
+        super().__init__()
+
+
+class OSNotSupportedError(SupportError):
+    """ Operating system is not supported. """
+    pass
+
+
+class FeatureNotSupportedError(SupportError):
+    """ Feature has not been implemented for OS. """
+
+    def __init__(self, os_name, feature):
+        super().__init__(os_name)
+        self.feature = feature

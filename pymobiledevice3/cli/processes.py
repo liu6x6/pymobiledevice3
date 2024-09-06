@@ -10,22 +10,20 @@ logger = logging.getLogger(__name__)
 
 
 @click.group()
-def cli():
-    """ apps cli """
+def cli() -> None:
     pass
 
 
 @cli.group()
-def processes():
-    """ processes cli """
+def processes() -> None:
+    """ View process list using diagnosticsd API """
     pass
 
 
 @processes.command('ps', cls=Command)
-@click.option('--color/--no-color', default=True)
-def processes_ps(service_provider: LockdownClient, color):
+def processes_ps(service_provider: LockdownClient):
     """ show process list """
-    print_json(OsTraceService(lockdown=service_provider).get_pid_list().get('Payload'), colored=color)
+    print_json(OsTraceService(lockdown=service_provider).get_pid_list().get('Payload'))
 
 
 @processes.command('pgrep', cls=Command)

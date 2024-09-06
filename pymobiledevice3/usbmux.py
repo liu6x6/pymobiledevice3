@@ -1,7 +1,6 @@
 import abc
 import plistlib
 import socket
-import sys
 import time
 from dataclasses import dataclass
 from typing import List, Mapping, Optional
@@ -9,8 +8,9 @@ from typing import List, Mapping, Optional
 from construct import Const, CString, Enum, FixedSized, GreedyBytes, Int16ul, Int32ul, Padding, Prefixed, StreamError, \
     Struct, Switch, this
 
-from pymobiledevice3.exceptions import BadCommandError, BadDevError, ConnectionFailedError, MuxException, \
-    MuxVersionError, NotPairedError
+from pymobiledevice3.exceptions import BadCommandError, BadDevError, ConnectionFailedError, \
+    ConnectionFailedToUsbmuxdError, MuxException, MuxVersionError, NotPairedError
+from pymobiledevice3.osu.os_utils import get_os_utils
 
 usbmuxd_version = Enum(Int32ul,
                        BINARY=0,
@@ -106,10 +106,12 @@ class SafeStreamSocket:
     """ wrapper to native python socket object to be used with construct as a stream """
 
     def __init__(self, address, family):
+        self._offset = 0
         self.sock = socket.socket(family, socket.SOCK_STREAM)
         self.sock.connect(address)
 
     def send(self, msg: bytes) -> int:
+        self._offset += len(msg)
         self.sock.sendall(msg)
         return len(msg)
 
@@ -117,19 +119,23 @@ class SafeStreamSocket:
         msg = b''
         while len(msg) < size:
             chunk = self.sock.recv(size - len(msg))
+            self._offset += len(chunk)
             if not chunk:
                 raise MuxException('socket connection broken')
             msg += chunk
         return msg
 
-    def close(self):
+    def close(self) -> None:
         self.sock.close()
 
-    def settimeout(self, interval: float):
+    def settimeout(self, interval: float) -> None:
         self.sock.settimeout(interval)
 
-    def setblocking(self, blocking: bool):
+    def setblocking(self, blocking: bool) -> None:
         self.sock.setblocking(blocking)
+
+    def tell(self) -> int:
+        return self._offset
 
     read = recv
     write = send
@@ -157,15 +163,10 @@ class MuxConnection:
                     address = usbmux_address
                     family = socket.AF_UNIX
             else:
-                if sys.platform in ['win32', 'cygwin']:
-                    address = MuxConnection.ITUNES_HOST
-                    family = socket.AF_INET
-                else:
-                    address = MuxConnection.USBMUXD_PIPE
-                    family = socket.AF_UNIX
+                address, family = get_os_utils().usbmux_address
             return SafeStreamSocket(address, family)
         except ConnectionRefusedError:
-            raise ConnectionFailedError()
+            raise ConnectionFailedToUsbmuxdError()
 
     @staticmethod
     def create(usbmux_address: Optional[str] = None):
@@ -230,7 +231,7 @@ class MuxConnection:
         if self._connected:
             raise MuxException('Mux is connected, cannot issue control packets')
 
-    def _raise_mux_exception(self, result: int, message: str = None):
+    def _raise_mux_exception(self, result: int, message: Optional[str] = None) -> None:
         exceptions = {
             int(usbmuxd_result.BADCOMMAND): BadCommandError,
             int(usbmuxd_result.BADDEV): BadDevError,
