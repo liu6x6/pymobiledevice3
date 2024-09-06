@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-import os
-=======
 import copy
->>>>>>> master
 import io
 import os
 import plistlib
@@ -352,22 +348,17 @@ archiver.update_class_map({'DTSysmonTapMessage': DTTapMessage,
                            'NSError': NSError,
                            'NSUUID': NSUUID,
                            'NSURL': NSURL,
-<<<<<<< HEAD
                            'XCTCapabilities': XCTCapabilities,
                            "NSSet": set,
                            'XCTAttachmentFutureMetadata': XCTAttachmentFutureMetadata,
-                           'XCTestConfiguration': XCTestConfiguration,
                            'XCTRepetitionPolicy': XCTRepetitionPolicy,
                            'XCTRuntimeIssueDetectionPolicy': XCTRuntimeIssueDetectionPolicy,
-                           })
-=======
                            'NSValue': NSValue,
                            'NSMutableData': NSMutableData,
                            'NSMutableString': NSMutableString,
                            'XCTestConfiguration': XCTestConfiguration})
 
 archiver.Archive.inline_types = list(set(archiver.Archive.inline_types + [bytes]))
->>>>>>> master
 
 
 class Channel(int):
@@ -516,10 +507,7 @@ class RemoteServer(LockdownService):
         self.supported_identifiers = aux[0].value
 
     def make_channel(self, identifier) -> Channel:
-<<<<<<< HEAD
-=======
         # NOTE: There is also identifier not in self.supported_identifiers
->>>>>>> master
         # assert identifier in self.supported_identifiers
         if identifier in self.channel_cache:
             return self.channel_cache[identifier]

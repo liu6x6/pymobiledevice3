@@ -71,15 +71,11 @@ class RemoteXPCConnection:
         self._writer.write(DataFrame(stream_id=ROOT_CHANNEL, data=xpc_wrapper).serialize())
         await self._writer.drain()
 
-<<<<<<< HEAD
 # send raw data, load from the disk
     def send_raw_request(self, data: bytes, wanting_reply: bool = False) -> None:
         self.sock.sendall(DataFrame(stream_id=ROOT_CHANNEL, data=data).serialize())
-
-    def iter_file_chunks(self, total_size: int, file_idx: int = 0) -> Generator[bytes, None, None]:
-=======
+ 
     async def iter_file_chunks(self, total_size: int, file_idx: int = 0) -> Generator[bytes, None, None]:
->>>>>>> master
         stream_id = (file_idx + 1) * 2
         await self._open_channel(stream_id, XpcFlags.FILE_TX_STREAM_RESPONSE)
         size = 0

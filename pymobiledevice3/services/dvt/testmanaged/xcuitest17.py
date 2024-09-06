@@ -19,7 +19,7 @@ from pymobiledevice3.services.remote_server import NSURL, NSUUID, Channel, Chann
 logger = logging.getLogger(__name__)
 
 
-class XCUITestService:
+class XCUITestService17:
     IDENTIFIER = "dtxproxy:XCTestManager_IDEInterface:XCTestManager_DaemonConnectionInterface"
     XCODE_VERSION = 36  # not important
 
@@ -34,18 +34,12 @@ class XCUITestService:
         test_runner_env: Optional[dict] = None,
         test_runner_args: Optional[list] = None,
     ):
-        # Test OK with
-        # - iPhone SE (iPhone8,4) 15.8
-        #
-        # Test Failed with
-        # - iPhone 12 Pro (iPhone13,3) 17.2
-        #
+         
         # TODO: it seems the protocol changed when iOS>=17
         session_identifier = NSUUID.uuid4()
         app_info = get_app_info(self.service_provider, bundle_id)
-        logger.info("app_info = %s",app_info)
 
-        xctest_configuration = generate_xctestconfiguration(
+        xctest_configuration = generate_xctestconfiguration17(
             app_info, session_identifier, bundle_id, test_runner_env, test_runner_args
         )
         xctest_path = f"/tmp/{str(session_identifier).upper()}.xctestconfiguration"  # yapf: disable
@@ -274,7 +268,7 @@ def get_app_info(service_provider: LockdownClient, bundle_id: str) -> Mapping[st
         return apps[bundle_id]
 
 
-def generate_xctestconfiguration(
+def generate_xctestconfiguration17(
     app_info: dict,
     session_identifier: NSUUID,
     target_app_bundle_id: str = None,
@@ -285,14 +279,9 @@ def generate_xctestconfiguration(
     exec_name: str = app_info["CFBundleExecutable"]
     assert exec_name.endswith("-Runner"), "Invalid CFBundleExecutable: %s" % exec_name
     config_name = exec_name[: -len("-Runner")]
-    _path = app_info["Path"]
-    _bundleName = app_info["CFBundleName"]
-    _bundleId = app_info["CFBundleIdentifier"]
-    _home = app_info["EnvironmentVariables"]["HOME"]
 
     return XCTestConfiguration(
         {
-            "targetApplicationPath": _path,
             "testBundleURL": NSURL(
                 None, f'file://{app_info["Path"]}/PlugIns/{config_name}.xctest'
             ),
