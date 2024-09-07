@@ -287,7 +287,7 @@ def screenshot(service_provider: LockdownClient, out):
         out.write(Screenshot(dvt).get_screenshot())
 
 
-@dvt.command('xcuitest', cls=Command)
+@dvt.command('xcuitest', cls=RSDCommand)
 @click.argument('bundle-id')
 def xcuitest(service_provider: LockdownClient, bundle_id: str) -> None:
     """\b
@@ -296,7 +296,10 @@ def xcuitest(service_provider: LockdownClient, bundle_id: str) -> None:
     Usage example:
         python3 -m pymobiledevice3 developer dvt xcuitest com.facebook.WebDriverAgentRunner.xctrunner
     """
-    XCUITestService(service_provider).run(bundle_id)
+    asyncio.run(
+        XCUITestService(service_provider).run(bundle_id)
+    )
+   
 
 
 @dvt.group('sysmon')

@@ -12,8 +12,19 @@
             "console": "integratedTerminal",
             "python": "/Users/xiao/miniconda3/envs/py12/bin/python",
             "args": [
+                 "developer","dvt","xcuitest","com.apple.test.WebDriverAgentRunner-Runner","--rsd", "fd74:4cf4:b520::1", "63423"
+            ]
+        },
+        {
+            "name": "Python Debugger: WDA",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "./pymobiledevice3/__main__.py",
+            "console": "integratedTerminal",
+            "python": "/Users/xiao/miniconda3/envs/py12/bin/python",
+            "args": [
                  "developer","dvt","xcuitest","com.apple.test.WebDriverAgentRunner-Runner"
             ]
-        }
+        },
     ]
 }

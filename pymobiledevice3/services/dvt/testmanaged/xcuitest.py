@@ -1,5 +1,6 @@
 import logging
 import time
+import uuid
 from typing import Any, Mapping, Optional
 
 from bpylist2 import archiver
@@ -16,6 +17,12 @@ from pymobiledevice3.services.installation_proxy import InstallationProxyService
 from pymobiledevice3.services.remote_server import NSURL, NSUUID, Channel, ChannelFragmenter, MessageAux, \
     XCTestConfiguration, dtx_message_header_struct, dtx_message_payload_header_struct
 
+from pymobiledevice3.remote.core_device.app_service import AppServiceService
+from pymobiledevice3.remote.core_device.openstdiosocket import Openstdiosocket
+from pymobiledevice3.remote.core_device.core_device_service import CoreDeviceService
+from pymobiledevice3.remote.remote_service_discovery import RemoteServiceDiscoveryService
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -25,21 +32,17 @@ class XCUITestService:
 
     def __init__(self, service_provider: LockdownServiceProvider):
         self.service_provider = service_provider
-        self.pctl = self.init_process_control()
+        # self.pctl = self.init_process_control()
         self.product_major_version = Version(service_provider.product_version).major
+        self.rsd = service_provider
 
-    def run(
+    async def run(
         self,
         bundle_id: str,
         test_runner_env: Optional[dict] = None,
         test_runner_args: Optional[list] = None,
     ):
-        # Test OK with
-        # - iPhone SE (iPhone8,4) 15.8
-        #
-        # Test Failed with
-        # - iPhone 12 Pro (iPhone13,3) 17.2
-        #
+        
         # TODO: it seems the protocol changed when iOS>=17
         session_identifier = NSUUID.uuid4()
         app_info = get_app_info(self.service_provider, bundle_id)
@@ -48,29 +51,71 @@ class XCUITestService:
         xctest_configuration = generate_xctestconfiguration(
             app_info, session_identifier, bundle_id, test_runner_env, test_runner_args
         )
-        xctest_path = f"/tmp/{str(session_identifier).upper()}.xctestconfiguration"  # yapf: disable
+        # xctest_path = f"/tmp/{str(session_identifier).upper()}.xctestconfiguration"  # yapf: disable
 
-        self.setup_xcuitest(bundle_id, xctest_path, xctest_configuration)
-        dvt1, chan1, dvt2, chan2 = self.init_ide_channels(session_identifier)
+        # self.setup_xcuitest(bundle_id, xctest_path, xctest_configuration)
+        # dvt1,dvt2 = self.init_connection()
+        dvt1 = DvtTestmanagedProxyService(lockdown=self.rsd)
+        dvt1.perform_handshake()
 
-        pid = self.launch_test_app(
-            app_info, bundle_id, xctest_path, test_runner_env, test_runner_args
+        capabilities = {
+         "capabilities-dictionary":{
+            "expected failure test capability": 1,
+            "test case run configurations": 1,
+            "test timeout capability": 1,
+            "test iterations":1,
+            "request diagnostics for specific devices":1,
+            "delayed attachment transfer":1,
+            "skipped test capability":1,
+            "daemon container sandbox extension":1,
+            "ubiquitous test identifiers":1,
+            "XCTIssue capability":1
+         }
+        }
+
+        chan1 = self.start_channel_with_capabilities(session_identifier,dvt=dvt1, capabilities=capabilities)
+
+        # chan2 = self.start_channel_with_cap(dvt2,capabilities={"capabilities-dictionary":{}})
+        
+        # dvt1, chan1, dvt2, chan2 = self.init_ide_channels(session_identifier)
+
+        pid = await self.launch_test_app17(
+            app_info, bundle_id, test_runner_env, test_runner_args,session_identifier
         )
+        
         logger.info("Runner started with pid:%d, waiting for testBundleReady", pid)
 
-        time.sleep(1)
-        self.authorize_test_process_id(chan1, pid)
-        self.start_executing_test_plan_with_protocol_version(dvt2, self.XCODE_VERSION)
+        dvt2 = DvtTestmanagedProxyService(lockdown=self.rsd)
+        dvt2.perform_handshake()
+
+        chan2 = dvt2.make_channel(self.IDENTIFIER)
+        args51 = MessageAux()
+        args51.append_obj({"capabilities-dictionary":{}})
+         # args51.append_obj({})
+        dvt2.send_message(channel=chan2, selector="_IDE_initiateControlSessionWithCapabilities:", args=args51)
+        ret = chan2.receive_plist()
+
+        logger.info("dvt 2 authorize_test_process_id=%d",pid)
+        self.authorize_test_process_id(chan2, pid)
+
+        logger.info("dvt1 start_channel_with_XCTestManager_IDEInterface")
+
+        chan11 = dvt1.make_channel("dtxproxy:XCTestDriverInterface:XCTestManager_IDEInterface")
+        # chan11 = self.start_channel_with_XCTestManager_IDEInterface(dvt1,"dtxproxy:XCTestDriverInterface:XCTestManager_IDEInterface")
+
+        logger.info("start_executing_test_plan_with_protocol_version chan11")
+        self.start_executing_test_plan_with_protocol_version(dvt1, self.XCODE_VERSION,channel=chan11)
 
         # TODO: boradcast message is not handled
         # TODO: RemoteServer.receive_message is not thread safe and will block if no message received
         try:
             self.dispatch(dvt2, chan2)
+            self.dispatch(dvt1, chan11)
         except KeyboardInterrupt:
             logger.info("Signal Interrupt catched")
         finally:
             logger.info("Killing UITest with pid %d ...", pid)
-            self.pctl.kill(pid)
+            # self.pctl.kill(pid)
             dvt1.close()
             dvt2.close()
 
@@ -121,8 +166,73 @@ class XCUITestService:
         dvt_proxy = DvtSecureSocketProxyService(lockdown=self.service_provider)
         dvt_proxy.perform_handshake()
         return ProcessControl(dvt_proxy)
+    
 
-    def init_ide_channels(self, session_identifier: NSUUID):
+    def init_connection(self):
+        dvt1 = DvtTestmanagedProxyService(lockdown=self.rsd)
+        dvt1.perform_handshake()
+
+        dvt2 = DvtTestmanagedProxyService(lockdown=self.rsd)
+        dvt2.perform_handshake()
+
+        return dvt1,dvt2
+
+
+    def start_channel_with_capabilities(self, session_identifier: NSUUID, dvt: DvtTestmanagedProxyService, capabilities: dict):
+        logger.info("make channel %s", self.IDENTIFIER)
+        chan1 = dvt.make_channel(self.IDENTIFIER)
+        # need prepare a response
+
+        dvt.send_message(
+                chan1,
+                "_IDE_initiateSessionWithIdentifier:capabilities:",
+                MessageAux().append_obj(session_identifier)
+                .append_obj(capabilities),
+            )
+        reply = chan1.receive_plist()
+        logger.info("start_channel_with_capabilities replay n: %s", reply)
+        # check the result return the XCTCapabilities
+        return chan1
+    
+    def start_channel_with_cap(self, dvt: DvtTestmanagedProxyService,capabilities: dict):
+        logger.info("make channel %s", self.IDENTIFIER)
+        chan = dvt.make_channel(self.IDENTIFIER)
+        # need prepare a response
+
+        dvt.send_message(
+                chan,
+                "_IDE_initiateControlSessionWithCapabilities:",
+                MessageAux().append_obj(capabilities),
+            )
+        reply = chan.receive_plist()
+        logger.info("start_channel_with_cap replay n: %s", reply)
+        # check the result return the XCTCapabilities
+        return chan
+
+    def start_channel_with_XCTestManager_IDEInterface(self, dvt: DvtTestmanagedProxyService,identify: str):
+        logger.info("make channel %s", identify)
+        chan1 = dvt.make_channel(identify) #dtxproxy:XCTestDriverInterface:XCTestManager_IDEInterface
+        # need prepare a response
+
+        # dvt.send_message(
+        #         chan1,
+        #         "_IDE_initiateSessionWithIdentifier:capabilities:",
+        #         MessageAux().append_obj(dvt)
+        #         .append_obj(capabilities),
+        #     )
+        # reply = chan1.receive_plist()
+        # logger.info("conn1 handshake xcode version: %s", reply)
+        # returnValue = reply.Payload[0]
+        return chan1
+
+
+
+    def start_channels2(self, session_identifier: NSUUID,dvt1: DvtTestmanagedProxyService):
+        logger.info("make channel %s", self.IDENTIFIER)
+        chan1 = dvt1.make_channel(self.IDENTIFIER)
+        # need prepare a response
+
+    def init_ide_channels(self, session_identifier: NSUUID,dvt1: DvtTestmanagedProxyService):
         # XcodeIDE require two connections
         dvt1 = DvtTestmanagedProxyService(lockdown=self.service_provider)
         dvt1.perform_handshake()
@@ -138,8 +248,7 @@ class XCUITestService:
             reply = chan1.receive_plist()
             logger.info("conn1 handshake xcode version: %s", reply)
 
-        dvt2 = DvtTestmanagedProxyService(lockdown=self.service_provider)
-        dvt2.perform_handshake()
+       
         chan2 = dvt2.make_channel(self.IDENTIFIER)
         dvt2.send_message(
             channel=chan2,
@@ -170,29 +279,20 @@ class XCUITestService:
                     afc.rm("/tmp/" + name)
             afc.set_file_contents(xctest_path, archiver.archive(xctest_configuration))
 
-    def start_executing_test_plan_with_protocol_version(self, dvt: DvtTestmanagedProxyService, protocol_version: int):
-        ide_channel = Channel.create(-1, dvt)
-        dvt.channel_messages[ide_channel] = ChannelFragmenter()
+    def start_executing_test_plan_with_protocol_version(self, dvt: DvtTestmanagedProxyService, protocol_version: int,channel: Channel):
+        # ide_channel = Channel.create(-1, dvt)
+        # dvt.channel_messages[ide_channel] = ChannelFragmenter()
         dvt.send_message(
-            ide_channel,
+            channel,
             "_IDE_startExecutingTestPlanWithProtocolVersion:",
             MessageAux().append_obj(protocol_version),
             expects_reply=False,
         )
 
     def authorize_test_process_id(self, chan: Channel, pid: int):
-        selector = None
         aux = MessageAux()
-        if self.product_major_version >= 12:
-            selector = "_IDE_authorizeTestSessionWithProcessID:"
-            aux.append_obj(pid)
-        elif self.product_major_version >= 10:
-            selector = "_IDE_initiateControlSessionForTestProcessID:protocolVersion:"
-            aux.append_obj(pid)
-            aux.append_obj(self.XCODE_VERSION)
-        else:
-            selector = "_IDE_initiateControlSessionForTestProcessID:"
-            aux.append_obj(pid)
+        selector = "_IDE_authorizeTestSessionWithProcessID:"
+        aux.append_obj(pid)
         chan.send_message(selector, aux)
         reply = chan.receive_plist()
         if isinstance(reply, bool) and reply is True:
@@ -200,13 +300,13 @@ class XCUITestService:
         else:
             raise RuntimeError("Failed to authorize test process id: %s" % reply)
 
-    def launch_test_app(
+    async def launch_test_app17(
         self,
         app_info: dict,
         bundle_id: str,
-        xctest_path: str,
         test_runner_env: Optional[dict] = None,
         test_runner_args: Optional[list] = None,
+        sessionId: NSUUID = None,
     ) -> int:
         app_container = app_info["Container"]
         app_path = app_info["Path"]
@@ -228,7 +328,7 @@ class XCUITestService:
             "SQLITE_ENABLE_THREAD_ASSERTIONS": "1",
             "WDA_PRODUCT_BUNDLE_IDENTIFIER": "",
             "XCTestBundlePath": f'{app_info["Path"]}/PlugIns/{target_name}.xctest',
-            "XCTestConfigurationFilePath": app_container + xctest_path,
+            # "XCTestConfigurationFilePath": "",
             "XCODE_DBG_XPC_EXCLUSIONS": "com.apple.dt.xctestSymbolicator",
             # the following maybe no needed
             # 'MJPEG_SERVER_PORT': '',
@@ -255,14 +355,17 @@ class XCUITestService:
         if self.product_major_version >= 12:
             app_options["ActivateSuspended"] = True
 
-        pid = self.pctl.launch(
-            bundle_id,
-            arguments=app_args,
-            environment=app_env,
-            extra_options=app_options,
-        )
-        for message in self.pctl:
-            logger.info("ProcessOutput: %s", message)
+
+        openstdioSocket = Openstdiosocket(self.rsd)
+        io_uuid = openstdioSocket.get_uuid()
+        print("get the std uuid = " + str(io_uuid))
+
+        async with AppServiceService(self.service_provider) as app_service:
+            sessioinIdUP = str(uuid.UUID(bytes=sessionId.bytes)).upper()
+            re = await app_service.test_launch_application2(sessioinIdUP, stdID=io_uuid)
+            pid = int(re["processToken"]["processIdentifier"])
+            print("pid:", pid)
+
         return pid
 
 
@@ -294,7 +397,7 @@ def generate_xctestconfiguration(
         {
             "targetApplicationPath": _path,
             "testBundleURL": NSURL(
-                None, f'file://{app_info["Path"]}/PlugIns/{config_name}.xctest'
+                None, f'PlugIns/WebDriverAgentRunner.xctest'
             ),
             "sessionIdentifier": session_identifier,
             "targetApplicationBundleID": target_app_bundle_id,

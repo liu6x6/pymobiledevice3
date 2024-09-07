@@ -291,10 +291,22 @@ class XCTestConfiguration:
         'aggregateStatisticsBeforeCrash': {
             'XCSuiteRecordsKey': {}
         },
+        'IDECapabilities': {
+            'expected failure test capability':         True,
+		    'test case run configurations':             True,
+		    'test timeout capability':                  True,
+		    'test iterations':                          True,
+		    'request diagnostics for specific devices': True,
+		    'delayed attachment transfer':              True,
+		    'skipped test capability':                  True,
+		    'daemon container sandbox extension':       True,
+		    'ubiquitous test identifiers':              True,
+		    'XCTIssue capability':                      True,
+        },
         'automationFrameworkPath': '/Developer/Library/PrivateFrameworks/XCTAutomationSupport.framework',
         'baselineFileRelativePath': None,
         'baselineFileURL': None,
-        'defaultTestExecutionTimeAllowance': None,
+        'defaultTestExecutionTimeAllowance': 0,
         'disablePerformanceMetrics': False,
         'emitOSLogs': False,
         'formatVersion': plistlib.UID(2),  # store in UID
@@ -302,17 +314,17 @@ class XCTestConfiguration:
         'initializeForUITesting': True,
         'maximumTestExecutionTimeAllowance': None,
         'productModuleName': 'WebDriverAgentRunner',  # set to other value is also OK
-        'randomExecutionOrderingSeed': None,
+        'randomExecutionOrderingSeed': 0,
         'reportActivities': True,
         'reportResultsToIDE': True,
         'systemAttachmentLifetime': 2,
         'targetApplicationArguments': [],  # maybe useless
-        'targetApplicationBundleID': None,
+        'targetApplicationBundleID': 'com.apple.test.WebDriverAgentRunner-Runner',
         'targetApplicationEnvironment': None,
         'targetApplicationPath': '/whatever-it-does-not-matter/but-should-not-be-empty',
         'testApplicationDependencies': {},
-        'testApplicationUserOverrides': None,
-        'testBundleRelativePath': None,
+        'testApplicationUserOverrides': 0,
+        'testBundleRelativePath': 0,
         'testExecutionOrdering': 0,
         'testTimeoutsEnabled': False,
         'testsDrivenByIDE': False,
@@ -320,7 +332,8 @@ class XCTestConfiguration:
         'testsToRun': None,
         'testsToSkip': None,
         'treatMissingBaselinesAsFailures': False,
-        'userAttachmentLifetime': 1
+        'userAttachmentLifetime': 0,
+        'preferredScreenCaptureFormat': 2
     }
 
     def __init__(self, kv: dict):

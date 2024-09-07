@@ -302,10 +302,62 @@ class AppServiceService(CoreDeviceService):
             raise CoreDeviceError(f'Failed to invoke: com.apple.coredevice.feature.launchapplication. Got error: {response}')
         return output
     
+
+    async def test_launch_application2(self, sessionIdentifier: str, stdID: uuid) -> Mapping:
+
+        ops = {
+            "ActivateSuspended": 1,
+		    "StartSuspendedKey": 0,
+        }
+        platformSpecificOptions = plistlib.dumps(ops)
+        # build binary plist ops to platformSpecificOptions
+
+        env = {
+                "CA_ASSERT_MAIN_THREAD_TRANSACTIONS": "0",
+                "CA_DEBUG_TRANSACTIONS": "0",
+                "DYLD_FRAMEWORK_PATH": "/System/Developer/Library/Frameworks",
+                "DYLD_LIBRARY_PATH": "/System/Developer/usr/lib",
+                "LLVM_PROFILE_FILE": "/dev/null",
+                "NSUnbufferedIO": "YES",
+                "MTC_CRASH_ON_REPORT":             "1",
+                "OS_ACTIVITY_DT_MODE":             "YES",
+                "XCTestBundlePath": "PlugIns/WebDriverAgentRunner.xctest",
+                "XCTestConfigurationFilePath": "",
+                "XCTestManagerVariant": "DDI",
+                "XCTestSessionIdentifier": sessionIdentifier, #Upper case
+                }
+        
+        _input = {
+                    "applicationSpecifier": {
+                        "bundleIdentifier": {
+                            "_0": "com.apple.test.WebDriverAgentRunner-Runner"
+                        }
+                    },
+                    "options": {
+                        "arguments": [],
+                        "environmentVariables":env,
+                        "platformSpecificOptions": platformSpecificOptions,
+                        "standardIOUsesPseudoterminals": True,
+                        "startStopped": False,
+                        "terminateExisting": True,
+                        "user": {
+                            "active": True
+                        },
+                        "workingDirectory": None
+                    },
+                    "standardIOIdentifiers": {
+                        "standardError": stdID,
+                        "standardInput": stdID,
+                        "standardOutput": stdID
+                    }
+                }
+        
+        output = await self.invoke("com.apple.coredevice.feature.launchapplication", _input)
+        return output
+
     def launch_application_raw(self,data: bytes) -> Mapping:
         return self.invoke_raw(data)
-    
-    def test_send_signal(self, pid:int):
+
         deviceIdentifier = "2070E331-97DE-429F-8D90-83133BE11FF2"
         dic = {
             "CoreDevice.CoreDeviceDDIProtocolVersion": XpcInt64Type(0),
