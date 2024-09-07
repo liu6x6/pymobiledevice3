@@ -98,26 +98,45 @@ class XCUITestService:
         logger.info("dvt 2 authorize_test_process_id=%d",pid)
         self.authorize_test_process_id(chan2, pid)
 
-        logger.info("dvt1 start_channel_with_XCTestManager_IDEInterface")
 
-        chan11 = dvt1.make_channel("dtxproxy:XCTestDriverInterface:XCTestManager_IDEInterface")
+        time.sleep(1)
+        # need wait the dvt1 receive dtx message from channel 0
+        while True:
+            key, value = dvt1.recv_plist()
+            logger.info("waitTheChannel got message: key=%s  value=%s",key, value)
+            if key == "aaa:":
+                break
+            else:
+                logger.info("nothing")
+
+        # self.waitTheChannel(dvt1,chan1)
+        # for channel requrest from the device for dvt1
+        logger.info("dvt1 start_channel_with_XCTestManager_IDEInterface")
+        # chan11 = dvt1.make_channel("dtxproxy:XCTestDriverInterface:XCTestManager_IDEInterface")
         # chan11 = self.start_channel_with_XCTestManager_IDEInterface(dvt1,"dtxproxy:XCTestDriverInterface:XCTestManager_IDEInterface")
 
-        logger.info("start_executing_test_plan_with_protocol_version chan11")
-        self.start_executing_test_plan_with_protocol_version(dvt1, self.XCODE_VERSION,channel=chan11)
+        logger.info("start_executing_test_plan_with_protocol_version chan -1")
+     
+        self.start_executing_test_plan_with_protocol_version(dvt1, self.XCODE_VERSION,channel=-1)
 
         # TODO: boradcast message is not handled
         # TODO: RemoteServer.receive_message is not thread safe and will block if no message received
         try:
-            self.dispatch(dvt2, chan2)
-            self.dispatch(dvt1, chan11)
+            # self.dispatch(dvt2, chan2)
+            self.dispatch(dvt1, chan1)
         except KeyboardInterrupt:
             logger.info("Signal Interrupt catched")
         finally:
             logger.info("Killing UITest with pid %d ...", pid)
             # self.pctl.kill(pid)
-            dvt1.close()
-            dvt2.close()
+            # dvt1.close()
+            # dvt2.close()
+
+    def waitTheChannel(self,dvt: DvtTestmanagedProxyService, chan: Channel):
+         while True:
+             key, value = dvt.recv_plist(chan)
+             logger.info("waitTheChannel got message: key=%s  value=%s",key, value)
+            #  if dtxproxy:XCTestDriverInterface:XCTestManager_IDEInterface
 
     def dispatch(self, dvt: DvtTestmanagedProxyService, chan: Channel):
         while True:
@@ -279,11 +298,11 @@ class XCUITestService:
                     afc.rm("/tmp/" + name)
             afc.set_file_contents(xctest_path, archiver.archive(xctest_configuration))
 
-    def start_executing_test_plan_with_protocol_version(self, dvt: DvtTestmanagedProxyService, protocol_version: int,channel: Channel):
-        # ide_channel = Channel.create(-1, dvt)
+    def start_executing_test_plan_with_protocol_version(self, dvt: DvtTestmanagedProxyService, protocol_version: int,channel: int):
+        ide_channel = Channel.create(-1, dvt)
         # dvt.channel_messages[ide_channel] = ChannelFragmenter()
         dvt.send_message(
-            channel,
+            ide_channel,
             "_IDE_startExecutingTestPlanWithProtocolVersion:",
             MessageAux().append_obj(protocol_version),
             expects_reply=False,

@@ -138,7 +138,10 @@ class RemoteServiceDiscoveryService(LockdownServiceProvider):
             name_str = f' NAME:{self.name}'
         return (f'<{self.__class__.__name__} PRODUCT:{self.product_type} VERSION:{self.product_version} '
                 f'UDID:{self.udid}{name_str}>')
-
+    
+    def __enter__(self) -> 'RemoteServiceDiscoveryService':
+        self.connect()
+        return self
 
 async def get_remoted_devices(timeout: float = DEFAULT_BONJOUR_TIMEOUT) -> List[RSDDevice]:
     result = []

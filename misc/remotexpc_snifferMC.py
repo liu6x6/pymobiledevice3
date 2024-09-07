@@ -1,4 +1,5 @@
 import logging
+import asyncio
 from pprint import pformat
 from typing import List, MutableMapping, Optional
 
@@ -13,7 +14,7 @@ from scapy.packet import Packet
 from scapy.sendrecv import sniff
 from scapy.all import get_if_list, get_working_if, show_interfaces
 
-from pymobiledevice3.remote.core_device_tunnel_service import PairingDataComponentTLVBuf
+from pymobiledevice3.remote.tunnel_service import PairingDataComponentTLVBuf
 from pymobiledevice3.remote.remotexpc import HTTP2_MAGIC
 from pymobiledevice3.remote.xpc_message import XpcWrapper, decode_xpc_object
 from pymobiledevice3.remote.remote_service_discovery import RemoteServiceDiscoveryService
@@ -42,10 +43,10 @@ from scapy.sendrecv import sniff
 
 
 
-address = "fde3:bbec:f29e::1"
-rsd_port = 49241  
+address = "fd4c:5027:d655::1"
+rsd_port = 49255  
+interface = "utun4"
 
-interface = "utun3"
 print(address)
 print(rsd_port)
 print(interface)
@@ -90,9 +91,10 @@ packet_id = 0
     #     print(rsd)
 
 peer_info = {}
-with RemoteServiceDiscoveryService((address,rsd_port)) as rsd:
-    rsd.connect()
-    peer_info = rsd.peer_info
+rsd = RemoteServiceDiscoveryService((address,rsd_port))
+asyncio.run(rsd.connect())
+time.sleep(1)
+peer_info = rsd.peer_info
 
 services = {str(rsd_port): "RSD"}
 
