@@ -530,6 +530,9 @@ class RemoteServer(LockdownService):
         args = MessageAux().append_int(code).append_obj(identifier)
         self.send_message(0, '_requestChannelWithCode:identifier:', args)
         ret, aux = self.recv_plist()
+        # if ret == '_notifyOfPublishedCapabilities:':
+        #     print("got a '_notifyOfPublishedCapabilities:' request from devices")
+        #     ret, aux = self.recv_plist()
         # if aux is None:
         #     self.logger.info("receive new data ret = %s",ret)
         #     ret, aux = self.recv_plist()
@@ -573,13 +576,47 @@ class RemoteServer(LockdownService):
                 print("write _IDE_collectNewCrashReportsInDirectories:matchingProcessNames: message to: session.bin")
         self.service.sendall(msg)
 
+    def send_message1(self, channel: int, selector: str = None, args: MessageAux = None, expects_reply: bool = True):
+        # self.cur_message += 1 
+        # identify must be 1
+        aux = bytes(args) if args is not None else b''
+        sel = archiver.archive(selector) if selector is not None else b''
+        flags = self.INSTRUMENTS_MESSAGE_TYPE
+        # if expects_reply:
+        #     flags |= self.EXPECTS_REPLY_MASK
+        pheader = dtx_message_payload_header_struct.build(dict(flags=flags, auxiliaryLength=len(aux),
+                                                               totalLength=len(aux) + len(sel)))
+        mheader = dtx_message_header_struct.build(dict(
+            cb=dtx_message_header_struct.sizeof(),
+            fragmentId=0,
+            fragmentCount=1,
+            length=dtx_message_payload_header_struct.sizeof() + len(aux) + len(sel),
+            identifier=1,
+            conversationIndex=0,
+            channelCode=channel,
+            expectsReply=int(0)
+        ))
+        print()
+        print("sendMessage1: ")
+        print("selector: ", selector)
+        print("aux: ", None if args is None else args.values)
+        print("flags: ", flags)
+        print()
+        msg = mheader + pheader + aux + sel
+        if selector == "_IDE_collectNewCrashReportsInDirectories:matchingProcessNames:":
+            name = "/Users/xiao/session.bin"
+            with open(name, 'wb') as file:
+                file.write(msg)
+                print("write _IDE_collectNewCrashReportsInDirectories:matchingProcessNames: message to: session.bin")
+        self.service.sendall(msg)
+    
     def recv_plist(self, channel: int = BROADCAST_CHANNEL):
         data, aux = self.recv_message(channel)
         if data is not None:
             try:
                 data = archiver.unarchive(data)
             except archiver.MissingClassMapping as e:
-                pprint(plistlib.loads(data))
+                print(plistlib.loads(data))
                 raise e
             except plistlib.InvalidFileException:
                 self.logger.warning(f'got an invalid plist: {data[:40]}')

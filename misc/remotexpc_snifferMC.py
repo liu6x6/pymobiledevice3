@@ -43,9 +43,9 @@ from scapy.sendrecv import sniff
 
 
 
-address = "fd4c:5027:d655::1"
-rsd_port = 49255  
-interface = "utun4"
+address = "fd26:d178:471a::1"
+rsd_port = 63514  
+interface = "utun5"
 
 print(address)
 print(rsd_port)
@@ -277,10 +277,12 @@ class RemoteXPCSniffer:
 
         if "openstdiosocket" in server_service:
             try:
-                content = data.decode('ascii', errors='replace')
-                print(content)
-            except Exception as e:
+                # content = data.decode('ascii', errors='replace')
+                print("openstdiosocket 16 bytes:")
+                print(data)
+            except Exception as e1:
                 print("parse openstdiosocket failed")
+                print("Get Exception %s",e1)
 
          
         stream = self._h2_streams.setdefault(

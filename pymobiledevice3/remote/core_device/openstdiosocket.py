@@ -7,6 +7,7 @@ import uuid
 import socket
 from socket import create_connection
 from pymobiledevice3.exceptions import InvalidServiceError
+import threading
  
  
 class Openstdiosocket(CoreDeviceService):
@@ -54,3 +55,34 @@ class Openstdiosocket(CoreDeviceService):
                 raise ConnectionAbortedError()
             data += chunk
         return data
+    
+    def loop_data(self):
+        buffer = b''
+        while True:
+            try:
+                # Try receiving data
+                data = self.sock.recv(1024)
+                if data:
+                    buffer += data
+                    if b'\n' in buffer:
+                        messages = buffer.split(b'\n')
+                        for message in messages[:-1]:
+                            print(f"Received complete message: {message.decode('utf-8')}")
+                        buffer = messages[-1]
+                else:
+                    # If recv() returns empty, the socket is closed
+                    print("Client disconnected gracefully")
+                    break
+            except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError):
+                print("Socket connection broken")
+                break
+            except socket.error as e:
+                print(f"Socket error: {e}")
+                break
+        
+
+    def starting(self):
+        #keep receive log
+        receiving_thread = threading.Thread(target=self.loop_data)
+        receiving_thread.start()
+

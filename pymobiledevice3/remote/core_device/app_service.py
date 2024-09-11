@@ -303,13 +303,13 @@ class AppServiceService(CoreDeviceService):
         return output
     
 
-    async def test_launch_application2(self, sessionIdentifier: str, stdID: uuid) -> Mapping:
+    async def test_launch_application2(self, sessionIdentifier: str, stdID: uuid, XCTestBundlePath: str) -> Mapping:
 
         ops = {
             "ActivateSuspended": 1,
 		    "StartSuspendedKey": 0,
         }
-        platformSpecificOptions = plistlib.dumps(ops)
+        platformSpecificOptions = plistlib.dumps(ops, fmt=plistlib.FMT_BINARY)
         # build binary plist ops to platformSpecificOptions
 
         env = {
@@ -317,11 +317,12 @@ class AppServiceService(CoreDeviceService):
                 "CA_DEBUG_TRANSACTIONS": "0",
                 "DYLD_FRAMEWORK_PATH": "/System/Developer/Library/Frameworks",
                 "DYLD_LIBRARY_PATH": "/System/Developer/usr/lib",
-                "LLVM_PROFILE_FILE": "/dev/null",
+                "DYLD_INSERT_LIBRARIES": "/Developer/usr/lib/libMainThreadChecker.dylib",
                 "NSUnbufferedIO": "YES",
                 "MTC_CRASH_ON_REPORT":             "1",
                 "OS_ACTIVITY_DT_MODE":             "YES",
-                "XCTestBundlePath": "PlugIns/WebDriverAgentRunner.xctest",
+                "SQLITE_ENABLE_THREAD_ASSERTIONS": "1",
+                "XCTestBundlePath": XCTestBundlePath,
                 "XCTestConfigurationFilePath": "",
                 "XCTestManagerVariant": "DDI",
                 "XCTestSessionIdentifier": sessionIdentifier, #Upper case

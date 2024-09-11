@@ -13,7 +13,7 @@ def _generate_core_device_version_dict(version: str) -> Mapping:
             'stringValue': version}
 
 
-CORE_DEVICE_VERSION = _generate_core_device_version_dict('325.3')
+CORE_DEVICE_VERSION = _generate_core_device_version_dict('348.1')
 
 
 class CoreDeviceService(RemoteService):
