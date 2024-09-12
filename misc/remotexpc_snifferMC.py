@@ -28,6 +28,9 @@ import subprocess
 import sys
 import os
 import shutil
+import requests
+import psutil
+import socket
 
 BPLIST_MAGIC = b'bplist'
 PLIST_MAGIC = b'<plist'
@@ -42,10 +45,58 @@ from scapy.sendrecv import sniff
 
 
 
+def get_interface_name(base_ipv6_address: str):
+    target_ipv6_address = base_ipv6_address[:-1] + '2' 
+    for interface_name, interface_addresses in psutil.net_if_addrs().items():
+        for address in interface_addresses:
+            print(address.address  + "" + interface_name)
+            # if address.family == socket.AF_INET6:  # Filter for IPv6 addresses
+            if address.address == target_ipv6_address:
+                print(f"Interface: {interface_name} has matching address: {target_ipv6_address}")
+                return interface_name
+    print("could not find ip = " + target_ipv6_address)
+    return ""                
 
-address = "fd26:d178:471a::1"
-rsd_port = 63514  
-interface = "utun5"
+
+TUNNELD_DEFAULT_ADDRESS = ('127.0.0.1', 49151)
+# we could get the tunnel address add port
+# from http://127.0.0.1:49151/
+def get_py3_rsd():
+    resp = requests.get(f'http://{TUNNELD_DEFAULT_ADDRESS[0]}:{TUNNELD_DEFAULT_ADDRESS[1]}')
+    parsed_data = resp.json()
+    device_key, tunnel_info_list = next(iter(parsed_data.items()))
+    tunnel_info = tunnel_info_list[0]
+    # Extract the tunnel address and tunnel port
+    tunnel_address = tunnel_info['tunnel-address']
+    tunnel_port = tunnel_info['tunnel-port']
+    return device_key,tunnel_address,tunnel_port
+
+# for go 
+# [
+#   {
+#     "address": "fd8c:e9c5:cd2e::1",
+#     "rsdPort": 62390,
+#     "udid": "00008110-001209113410401E",
+#     "userspaceTun": false,
+#     "userspaceTunPort": 0
+#   }
+# ]
+
+def get_go_rsd(): 
+    resp = requests.get(f'http://127.0.0.1:60105/tunnels')
+    parsed_data = resp.json()
+    tunnel_info = parsed_data[0]
+    uuid =  tunnel_info['uuid']
+    tunnel_address = tunnel_info['address']
+    tunnel_port = tunnel_info['rsdPort']
+    return uuid, tunnel_address, tunnel_port
+
+# device_udid,address,rsd_port = get_go_rsd()
+device_udid,address,rsd_port = get_py3_rsd()
+
+interface_name = get_interface_name(address)
+
+interface = interface_name
 
 print(address)
 print(rsd_port)
@@ -278,8 +329,11 @@ class RemoteXPCSniffer:
         if "openstdiosocket" in server_service:
             try:
                 # content = data.decode('ascii', errors='replace')
-                print("openstdiosocket 16 bytes:")
-                print(data)
+                print("openstdiosocket data:")
+                if len(data) == 16: 
+                    print(data.decode('ascii', errors='replace'))
+                else:
+                    print(data)
             except Exception as e1:
                 print("parse openstdiosocket failed")
                 print("Get Exception %s",e1)

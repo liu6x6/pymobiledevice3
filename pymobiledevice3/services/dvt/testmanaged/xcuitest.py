@@ -55,12 +55,13 @@ class XCUITestService:
 
  
         dvt1 = DvtTestmanagedProxyService(lockdown=self.rsd)
-        # dvt2 = DvtTestmanagedProxyService(lockdown=self.rsd)
+    
+        msg1 = dvt1.recv_message()
+        logger.info("msg1 = %s",msg1)
 
-       
-        dvt1.perform_handshake()
-        # dvt2.perform_handshake()
-         # dvt1.recv_plist()
+        dvt2 = DvtTestmanagedProxyService(lockdown=self.rsd)
+        msg2 = dvt2.recv_message()
+        logger.info("msg2 = %s",msg2)
         # dvt2.recv_plist()
 
         capabilities = {
@@ -88,16 +89,17 @@ class XCUITestService:
         
         logger.info("Runner started with pid:%d, waiting for testBundleReady", pid)
 
-        dvt2 = DvtTestmanagedProxyService(lockdown=self.rsd)
-        dvt2.perform_handshake()
+        # dvt2 = DvtTestmanagedProxyService(lockdown=self.rsd)
+        # dvt2.perform_handshake()
         # wait for a request from device?
 
-        chan2 = dvt2.make_channel(self.IDENTIFIER)
+        chan2 = dvt2.make_channel1(self.IDENTIFIER,5)
         args22 = MessageAux()
         args22.append_obj({"capabilities-dictionary":{}})
         
         dvt2.send_message(channel=chan2, selector="_IDE_initiateControlSessionWithCapabilities:", args=args22)
-        callable1 = chan2.receive_message()
+        capabilities_resp = chan2.receive_message()
+        logger.info("got dvt capabilities_resp = %s",capabilities_resp)
 
         logger.info("dvt2 authorize_test_process_id=%d",pid)
         self.authorize_test_process_id(chan2, pid)
@@ -106,11 +108,8 @@ class XCUITestService:
         # need wait the dvt1 receive dtx message from channel 0
         self.waitTheChannel(dvt1)
 
-        # self.waitTheChannel(dvt1,chan1)
         # for channel requrest from the device for dvt1
         logger.info("dvt1 start_channel_with_XCTestManager_IDEInterface")
-        # chan11 = dvt1.make_channel("dtxproxy:XCTestDriverInterface:XCTestManager_IDEInterface")
-        # chan11 = self.start_channel_with_XCTestManager_IDEInterface(dvt1,"dtxproxy:XCTestDriverInterface:XCTestManager_IDEInterface")
 
         logger.info("start_executing_test_plan_with_protocol_version chan -1")
         self.start_executing_test_plan_with_protocol_version(dvt1, self.XCODE_VERSION,channel=-1)
@@ -128,7 +127,7 @@ class XCUITestService:
             # dvt1.close()
             # dvt2.close()
 
-    def waitTheChannel(self,dvt: DvtTestmanagedProxyService):
+    def waitTheChannel(self, dvt: DvtTestmanagedProxyService):
          while True:
              key, value = dvt.recv_message()
              logger.info("waitTheChannel got message: key=%s  value=%s",key, value)
@@ -199,7 +198,7 @@ class XCUITestService:
 
     def start_channel_with_capabilities(self, session_identifier: NSUUID, dvt: DvtTestmanagedProxyService, capabilities: dict):
         logger.info("make channel %s", self.IDENTIFIER)
-        chan1 = dvt.make_channel(self.IDENTIFIER)
+        chan1 = dvt.make_channel1(self.IDENTIFIER, 5)
         # need prepare a response
 
         dvt.send_message(

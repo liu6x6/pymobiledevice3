@@ -541,9 +541,34 @@ class RemoteServer(LockdownService):
         self.channel_cache[identifier] = channel
         self.channel_messages[code] = ChannelFragmenter()
         return channel
+    
+    def make_channel1(self, identifier , msgId: int) -> Channel:
+        # NOTE: There is also identifier not in self.supported_identifiers
+        # assert identifier in self.supported_identifiers
+        if identifier in self.channel_cache:
+            return self.channel_cache[identifier]
 
-    def send_message(self, channel: int, selector: str = None, args: MessageAux = None, expects_reply: bool = True):
-        self.cur_message += 1
+        self.last_channel_code += 1
+        code = self.last_channel_code
+        args = MessageAux().append_int(code).append_obj(identifier)
+        self.send_message(0, '_requestChannelWithCode:identifier:', args, msgId = msgId)
+        ret, aux = self.recv_plist()
+        # if ret == '_notifyOfPublishedCapabilities:':
+        #     print("got a '_notifyOfPublishedCapabilities:' request from devices")
+        #     ret, aux = self.recv_plist()
+ 
+        assert ret is None
+        channel = Channel.create(code, self)
+        self.channel_cache[identifier] = channel
+        self.channel_messages[code] = ChannelFragmenter()
+        return channel
+
+    def send_message(self, channel: int, selector: str = None, args: MessageAux = None, expects_reply: bool = True, msgId: int = None):
+        if msgId is not None:
+            _message_id = msgId
+        else:
+            self.cur_message += 1
+            _message_id = self.cur_message
 
         aux = bytes(args) if args is not None else b''
         sel = archiver.archive(selector) if selector is not None else b''
@@ -557,7 +582,7 @@ class RemoteServer(LockdownService):
             fragmentId=0,
             fragmentCount=1,
             length=dtx_message_payload_header_struct.sizeof() + len(aux) + len(sel),
-            identifier=self.cur_message,
+            identifier=_message_id,
             conversationIndex=0,
             channelCode=channel,
             expectsReply=int(expects_reply)

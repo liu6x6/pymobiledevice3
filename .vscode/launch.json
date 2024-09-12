@@ -16,6 +16,18 @@
             ]
         },
         {
+            "name": "Python Debugger: MC sniffer",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "./misc/remotexpc_snifferMC.py",
+            "console": "integratedTerminal",
+            "python": "/Users/xiao/miniconda3/envs/py12/bin/python",
+            "args": [
+                
+            ],
+            "sudo": false
+        },
+        {
             "name": "Python Debugger: WDA",
             "type": "debugpy",
             "request": "launch",
