@@ -25,7 +25,6 @@ from pymobiledevice3.remote.remote_service_discovery import RemoteServiceDiscove
 
 logger = logging.getLogger(__name__)
 
-
 class XCUITestService:
     IDENTIFIER = "dtxproxy:XCTestManager_IDEInterface:XCTestManager_DaemonConnectionInterface"
     XCODE_VERSION = 36  # not important
@@ -59,9 +58,9 @@ class XCUITestService:
         msg1 = dvt1.recv_message()
         logger.info("msg1 = %s",msg1)
 
-        dvt2 = DvtTestmanagedProxyService(lockdown=self.rsd)
-        msg2 = dvt2.recv_message()
-        logger.info("msg2 = %s",msg2)
+        # dvt2 = DvtTestmanagedProxyService(lockdown=self.rsd)
+        # msg2 = dvt2.recv_message()
+        # logger.info("msg2 = %s",msg2)
         # dvt2.recv_plist()
 
         capabilities = {
@@ -80,7 +79,6 @@ class XCUITestService:
         }
 
         chan1 = self.start_channel_with_capabilities(session_identifier,dvt=dvt1, capabilities=capabilities)
-
         # chan2 = self.start_channel_with_cap(dvt2,capabilities={"capabilities-dictionary":{}})
         
         pid = await self.launch_test_app17(
@@ -93,7 +91,10 @@ class XCUITestService:
         # dvt2.perform_handshake()
         # wait for a request from device?
 
-        chan2 = dvt2.make_channel1(self.IDENTIFIER,5)
+        dvt2 = DvtTestmanagedProxyService(lockdown=self.rsd)
+        msg2 = dvt2.recv_message()
+        chan2 = dvt2.make_channel1(self.IDENTIFIER, 5)
+        
         args22 = MessageAux()
         args22.append_obj({"capabilities-dictionary":{}})
         
@@ -104,7 +105,7 @@ class XCUITestService:
         logger.info("dvt2 authorize_test_process_id=%d",pid)
         self.authorize_test_process_id(chan2, pid)
 
-        time.sleep(1.5)
+        time.sleep(1.0)
         # need wait the dvt1 receive dtx message from channel 0
         self.waitTheChannel(dvt1)
 
@@ -352,8 +353,6 @@ class XCUITestService:
             "XCODE_DBG_XPC_EXCLUSIONS": "com.apple.dt.xctestSymbolicator",
             # the following maybe no needed
             # 'MJPEG_SERVER_PORT': '',
-            # 'USE_PORT': '',
-            # 'LLVM_PROFILE_FILE': app_container + '/tmp/%p.profraw', # %p means pid
         }
 
         if test_runner_env:
@@ -379,15 +378,14 @@ class XCUITestService:
         XCTestBundlePath = f'{app_info["Path"]}/PlugIns/{target_name}.xctest'
         print("XCTestBundlePath = " + XCTestBundlePath)
 
-        async with AppServiceService(self.service_provider) as app_service:
-            sessioinIdUP = str(uuid.UUID(bytes=sessionId.bytes)).upper()
-            re = await app_service.test_launch_application2(sessioinIdUP, stdID=io_uuid,XCTestBundlePath=XCTestBundlePath)
-            pid = int(re["processToken"]["processIdentifier"])
-            print("pid:", pid)
-
-        self.app_service = app_service
+        sessioinIdUP = str(uuid.UUID(bytes=sessionId.bytes)).upper()
+        self.app_service = AppServiceService(self.service_provider)
+        await self.app_service.connect()
+        re = await self.app_service.test_launch_application2(sessioinIdUP, stdID=io_uuid,XCTestBundlePath=XCTestBundlePath)
+        pid = int(re["processToken"]["processIdentifier"])
+        print("pid:", pid)
+             
         return pid
-
 
 def get_app_info(service_provider: LockdownClient, bundle_id: str) -> Mapping[str, Any]:
     with InstallationProxyService(lockdown=service_provider) as install_service:

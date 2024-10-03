@@ -8,6 +8,10 @@ from pymobiledevice3.remote.xpc_message import XpcInt64Type, XpcUInt64Type
 
 def _generate_core_device_version_dict(version: str) -> Mapping:
     version_components = version.split('.')
+    version_components.append(0)
+    version_components.append(0)
+    version_components.append(0)
+    
     return {'components': [XpcUInt64Type(component) for component in version_components],
             'originalComponentsCount': XpcInt64Type(len(version_components)),
             'stringValue': version}

@@ -49,7 +49,7 @@ def get_interface_name(base_ipv6_address: str):
     target_ipv6_address = base_ipv6_address[:-1] + '2' 
     for interface_name, interface_addresses in psutil.net_if_addrs().items():
         for address in interface_addresses:
-            print(address.address  + "" + interface_name)
+            # print(address.address  + "" + interface_name)
             # if address.family == socket.AF_INET6:  # Filter for IPv6 addresses
             if address.address == target_ipv6_address:
                 print(f"Interface: {interface_name} has matching address: {target_ipv6_address}")
@@ -71,16 +71,6 @@ def get_py3_rsd():
     tunnel_port = tunnel_info['tunnel-port']
     return device_key,tunnel_address,tunnel_port
 
-# for go 
-# [
-#   {
-#     "address": "fd8c:e9c5:cd2e::1",
-#     "rsdPort": 62390,
-#     "udid": "00008110-001209113410401E",
-#     "userspaceTun": false,
-#     "userspaceTunPort": 0
-#   }
-# ]
 
 def get_go_rsd(): 
     resp = requests.get(f'http://127.0.0.1:60105/tunnels')
