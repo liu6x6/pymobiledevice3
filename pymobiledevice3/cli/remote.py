@@ -4,7 +4,7 @@ import logging
 import sys
 import tempfile
 from functools import partial
-from typing import List, Mapping, Optional, TextIO
+from typing import Optional, TextIO
 
 import click
 
@@ -25,7 +25,7 @@ from pymobiledevice3.tunneld import TUNNELD_DEFAULT_ADDRESS, TunneldRunner
 logger = logging.getLogger(__name__)
 
 
-async def browse_rsd(timeout: float = DEFAULT_BONJOUR_TIMEOUT) -> List[Mapping]:
+async def browse_rsd(timeout: float = DEFAULT_BONJOUR_TIMEOUT) -> list[dict]:
     devices = []
     for rsd in await get_rsds(timeout):
         devices.append({'address': rsd.service.address[0],
@@ -36,7 +36,7 @@ async def browse_rsd(timeout: float = DEFAULT_BONJOUR_TIMEOUT) -> List[Mapping]:
     return devices
 
 
-async def browse_remotepairing(timeout: float = DEFAULT_BONJOUR_TIMEOUT) -> List[Mapping]:
+async def browse_remotepairing(timeout: float = DEFAULT_BONJOUR_TIMEOUT) -> list[dict]:
     devices = []
     for remotepairing in await get_remote_pairing_tunnel_services(timeout):
         devices.append({'address': remotepairing.hostname,
@@ -68,7 +68,8 @@ def remote_cli() -> None:
 @click.option('--port', type=click.INT, default=TUNNELD_DEFAULT_ADDRESS[1])
 @click.option('-d', '--daemonize', is_flag=True)
 @click.option('-p', '--protocol', type=click.Choice([e.value for e in TunnelProtocol]),
-              default=TunnelProtocol.QUIC.value)
+              help='Transport protocol. If python version >= 3.13 will default to TCP. Otherwise will default to QUIC',
+              default=TunnelProtocol.DEFAULT.value)
 @click.option('--usb/--no-usb', default=True, help='Enable usb monitoring')
 @click.option('--wifi/--no-wifi', default=True, help='Enable wifi monitoring')
 @click.option('--usbmux/--no-usbmux', default=True, help='Enable usbmux monitoring')
@@ -112,7 +113,7 @@ def rsd_info(service_provider: RemoteServiceDiscoveryService):
 
 async def tunnel_task(
         service, secrets: Optional[TextIO] = None, script_mode: bool = False,
-        max_idle_timeout: float = MAX_IDLE_TIMEOUT, protocol: TunnelProtocol = TunnelProtocol.QUIC) -> None:
+        max_idle_timeout: float = MAX_IDLE_TIMEOUT, protocol: TunnelProtocol = TunnelProtocol.DEFAULT) -> None:
     async with start_tunnel(
             service, secrets=secrets, max_idle_timeout=max_idle_timeout, protocol=protocol) as tunnel_result:
         logger.info('tunnel created')
@@ -152,7 +153,7 @@ async def tunnel_task(
 
 async def start_tunnel_task(
         connection_type: ConnectionType, secrets: TextIO, udid: Optional[str] = None, script_mode: bool = False,
-        max_idle_timeout: float = MAX_IDLE_TIMEOUT, protocol: TunnelProtocol = TunnelProtocol.QUIC) -> None:
+        max_idle_timeout: float = MAX_IDLE_TIMEOUT, protocol: TunnelProtocol = TunnelProtocol.DEFAULT) -> None:
     if start_tunnel is None:
         raise NotImplementedError('failed to start the tunnel on your platform')
     get_tunnel_services = {
@@ -185,7 +186,7 @@ async def start_tunnel_task(
               help='Maximum QUIC idle time (ping interval)')
 @click.option('-p', '--protocol',
               type=click.Choice([e.value for e in TunnelProtocol], case_sensitive=False),
-              default=TunnelProtocol.QUIC.value)
+              default=TunnelProtocol.DEFAULT.value)
 @sudo_required
 def cli_start_tunnel(
         connection_type: ConnectionType, udid: Optional[str], secrets: TextIO, script_mode: bool,
@@ -211,7 +212,7 @@ async def start_remote_pair_task(device_name: str) -> None:
     if start_tunnel is None:
         raise NotImplementedError('failed to start the tunnel on your platform')
 
-    devices: List[RemotePairingManualPairingDevice] = []
+    devices: list[RemotePairingManualPairingDevice] = []
     for answer in await browse_remotepairing_manual_pairing():
         current_device_name = answer.properties[b'name'].decode()
 

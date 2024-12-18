@@ -3,6 +3,7 @@ import time
 import uuid
 from typing import Any, Mapping, Optional
 
+
 from bpylist2 import archiver
 from packaging.version import Version
 
@@ -387,7 +388,7 @@ class XCUITestService:
              
         return pid
 
-def get_app_info(service_provider: LockdownClient, bundle_id: str) -> Mapping[str, Any]:
+def get_app_info(service_provider: LockdownClient, bundle_id: str) -> dict[str, Any]:
     with InstallationProxyService(lockdown=service_provider) as install_service:
         apps = install_service.get_apps(bundle_identifiers=[bundle_id])
         if not apps:

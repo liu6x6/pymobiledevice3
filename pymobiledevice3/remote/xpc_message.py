@@ -1,7 +1,7 @@
 import dataclasses
 import uuid
 from datetime import datetime
-from typing import Any, List, Mapping
+from typing import Any
 
 from construct import Aligned, Array, Bytes, Const, CString, Default, Double, Enum, ExprAdapter, FlagsEnum, \
     GreedyBytes, Hex, If, Int32ul, Int64sl, Int64ul, LazyBound
@@ -130,7 +130,7 @@ class XpcFileTransferType:
         self.msg_id = msg_id
 
 
-def _decode_xpc_dictionary(xpc_object) -> Mapping:
+def _decode_xpc_dictionary(xpc_object) -> dict:
     if xpc_object.data.count == 0:
         return {}
     result = {}
@@ -139,7 +139,7 @@ def _decode_xpc_dictionary(xpc_object) -> Mapping:
     return result
 
 
-def _decode_xpc_array(xpc_object) -> List:
+def _decode_xpc_array(xpc_object) -> list:
     result = []
     for entry in xpc_object.data.entries:
         result.append(decode_xpc_object(entry))
@@ -218,7 +218,7 @@ def decode_xpc_object(xpc_object) -> Any:
     return decoder(xpc_object)
 
 
-def _build_xpc_array(payload: List) -> Mapping:
+def _build_xpc_array(payload: list) -> dict:
     entries = []
     for entry in payload:
         entry = _build_xpc_object(entry)
@@ -232,7 +232,7 @@ def _build_xpc_array(payload: List) -> Mapping:
     }
 
 
-def _build_xpc_dictionary(payload: Mapping) -> Mapping:
+def _build_xpc_dictionary(payload: dict) -> dict:
     entries = []
     for key, value in payload.items():
         entry = {'key': key, 'value': _build_xpc_object(value)}
@@ -246,56 +246,56 @@ def _build_xpc_dictionary(payload: Mapping) -> Mapping:
     }
 
 
-def _build_xpc_bool(payload: bool) -> Mapping:
+def _build_xpc_bool(payload: bool) -> dict:
     return {
         'type': XpcMessageType.BOOL,
         'data': payload,
     }
 
 
-def _build_xpc_string(payload: str) -> Mapping:
+def _build_xpc_string(payload: str) -> dict:
     return {
         'type': XpcMessageType.STRING,
         'data': payload,
     }
 
 
-def _build_xpc_data(payload: bool) -> Mapping:
+def _build_xpc_data(payload: bool) -> dict:
     return {
         'type': XpcMessageType.DATA,
         'data': payload,
     }
 
 
-def _build_xpc_double(payload: float) -> Mapping:
+def _build_xpc_double(payload: float) -> dict:
     return {
         'type': XpcMessageType.DOUBLE,
         'data': payload,
     }
 
 
-def _build_xpc_uuid(payload: uuid.UUID) -> Mapping:
+def _build_xpc_uuid(payload: uuid.UUID) -> dict:
     return {
         'type': XpcMessageType.UUID,
         'data': payload.bytes,
     }
 
 
-def _build_xpc_null(payload: None) -> Mapping:
+def _build_xpc_null(payload: None) -> dict:
     return {
         'type': XpcMessageType.NULL,
         'data': None,
     }
 
 
-def _build_xpc_uint64(payload: XpcUInt64Type) -> Mapping:
+def _build_xpc_uint64(payload: XpcUInt64Type) -> dict:
     return {
         'type': XpcMessageType.UINT64,
         'data': payload,
     }
 
 
-def _build_xpc_int64(payload: XpcInt64Type) -> Mapping:
+def _build_xpc_int64(payload: XpcInt64Type) -> dict:
     return {
         'type': XpcMessageType.INT64,
         'data': payload,
@@ -317,7 +317,7 @@ def _build_xpc_file_transfer(payload: XpcFileTransferType) -> Mapping:
 
 
 
-def _build_xpc_object(payload: Any) -> Mapping:
+def _build_xpc_object(payload: Any) -> dict:
     if payload is None:
         return _build_xpc_null(payload)
     payload_builders = {
@@ -339,7 +339,7 @@ def _build_xpc_object(payload: Any) -> Mapping:
     return builder(payload)
 
 
-def create_xpc_wrapper(d: Mapping, message_id: int = 0, wanting_reply: bool = False) -> bytes:
+def create_xpc_wrapper(d: dict, message_id: int = 0, wanting_reply: bool = False) -> bytes:
     flags = XpcFlags.ALWAYS_SET
     if len(d.keys()) > 0:
         flags |= XpcFlags.DATA_PRESENT

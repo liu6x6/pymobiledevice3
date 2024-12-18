@@ -2,7 +2,8 @@ import logging
 import posixpath
 import re
 import time
-from typing import Callable, Generator, List, Optional
+from collections.abc import Generator
+from typing import Callable, Optional
 
 from pycrashreport.crash_report import get_crash_report_from_buf
 from xonsh.built_ins import XSH
@@ -69,7 +70,7 @@ class CrashReportsManager:
             if item != self.APPSTORED_PATH:
                 raise AfcException(f'failed to clear crash reports directory, undeleted items: {undeleted_items}', None)
 
-    def ls(self, path: str = '/', depth: int = 1) -> List[str]:
+    def ls(self, path: str = '/', depth: int = 1) -> list[str]:
         """
         List file and folder in the crash report's directory.
         :param path: Path to list, relative to the crash report's directory.
@@ -78,13 +79,15 @@ class CrashReportsManager:
         """
         return list(self.afc.dirlist(path, depth))[1:]  # skip the root path '/'
 
-    def pull(self, out: str, entry: str = '/', erase: bool = False, match: Optional[str] = None) -> None:
+    def pull(self, out: str, entry: str = '/', erase: bool = False, match: Optional[str] = None,
+             progress_bar: bool = True) -> None:
         """
         Pull crash reports from the device.
         :param out: Directory to pull crash reports to.
         :param entry: File or Folder to pull.
         :param erase: Whether to erase the original file from the CrashReports directory.
         :param match: Regex to match against file and directory names to pull.
+        :param progress_bar: Whether to show a progress bar when pulling large files.
         """
 
         def log(src: str, dst: str) -> None:
@@ -94,7 +97,7 @@ class CrashReportsManager:
                     self.afc.rm_single(src, force=True)
 
         match = None if match is None else re.compile(match)
-        self.afc.pull(entry, out, match, callback=log)
+        self.afc.pull(entry, out, match, callback=log, progress_bar=progress_bar)
 
     def flush(self) -> None:
         """ Trigger com.apple.crashreportmover to flush all products into CrashReports directory """

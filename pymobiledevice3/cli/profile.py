@@ -2,10 +2,9 @@ import logging
 import plistlib
 import tempfile
 from pathlib import Path
-from typing import IO, List
+from typing import IO, Optional
 
 import click
-from typing_extensions import Optional
 
 from pymobiledevice3.ca import create_keybag_file
 from pymobiledevice3.cli.cli_common import Command, print_json
@@ -37,7 +36,7 @@ def profile_list(service_provider: LockdownClient):
 @profile_group.command('install', cls=Command)
 @click.option('--keybag', type=click.Path(file_okay=True, dir_okay=False, exists=True))
 @click.argument('profiles', nargs=-1, type=click.File('rb'))
-def profile_install(service_provider: LockdownServiceProvider, keybag: Optional[str], profiles: List[IO]) -> None:
+def profile_install(service_provider: LockdownServiceProvider, keybag: Optional[str], profiles: list[IO]) -> None:
     """
     Install given profiles
 
@@ -67,7 +66,7 @@ def profile_cloud_configuration(service_provider: LockdownServiceProvider, confi
 
 @profile_group.command('store', cls=Command)
 @click.argument('profiles', nargs=-1, type=click.File('rb'))
-def profile_store(service_provider: LockdownServiceProvider, profiles: List[IO]) -> None:
+def profile_store(service_provider: LockdownServiceProvider, profiles: list[IO]) -> None:
     """ Store a profile """
     service = MobileConfigService(lockdown=service_provider)
     for profile in profiles:

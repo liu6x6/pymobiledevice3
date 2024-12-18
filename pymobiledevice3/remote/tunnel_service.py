@@ -14,11 +14,12 @@ import sys
 from abc import ABC, abstractmethod
 from asyncio import CancelledError, StreamReader, StreamWriter
 from collections import namedtuple
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 from socket import create_connection
 from ssl import VerifyMode
-from typing import AsyncGenerator, List, Mapping, Optional, TextIO, cast
+from typing import Optional, TextIO, cast
 
 import aiofiles
 from construct import Const, Container
@@ -32,7 +33,7 @@ from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
 from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-from opack import dumps
+from opack2 import dumps
 from packaging.version import Version
 from pytun_pmd3 import TunTapDevice
 from qh3.asyncio import QuicConnectionProtocol
@@ -47,7 +48,6 @@ from srptools.constants import PRIME_3072, PRIME_3072_GEN
 
 from pymobiledevice3.lockdown_service_provider import LockdownServiceProvider
 from pymobiledevice3.osu.os_utils import get_os_utils
-from pymobiledevice3.services.lockdown_service import LockdownService
 
 try:
     from sslpsk_pmd3.sslpsk import SSLPSKContext
@@ -56,7 +56,8 @@ except ImportError:
 
 from pymobiledevice3.bonjour import DEFAULT_BONJOUR_TIMEOUT, browse_remotepairing
 from pymobiledevice3.ca import make_cert
-from pymobiledevice3.exceptions import PairingError, PyMobileDevice3Exception, UserDeniedPairingError
+from pymobiledevice3.exceptions import PairingError, PyMobileDevice3Exception, QuicProtocolNotSupportedError, \
+    RemotePairingCompletedError, UserDeniedPairingError
 from pymobiledevice3.pair_records import PAIRING_RECORD_EXT, create_pairing_records_cache_folder, generate_host_id, \
     get_remote_pairing_record_filename, iter_remote_paired_identifiers
 from pymobiledevice3.remote.common import TunnelProtocol
@@ -147,7 +148,7 @@ class RemotePairingTunnel(ABC):
         pass
 
     @abstractmethod
-    async def request_tunnel_establish(self) -> Mapping:
+    async def request_tunnel_establish(self) -> dict:
         pass
 
     @abstractmethod
@@ -192,7 +193,7 @@ class RemotePairingTunnel(ABC):
         self.tun = None
 
     @staticmethod
-    def _encode_cdtunnel_packet(data: Mapping) -> bytes:
+    def _encode_cdtunnel_packet(data: dict) -> bytes:
         return CDTunnelPacket.build({'body': json.dumps(data).encode()})
 
 
@@ -216,7 +217,7 @@ class RemotePairingQuicTunnel(RemotePairingTunnel, QuicConnectionProtocol):
         self._quic.send_datagram_frame(packet)
         self.transmit()
 
-    async def request_tunnel_establish(self) -> Mapping:
+    async def request_tunnel_establish(self) -> dict:
         stream_id = self._quic.get_next_available_stream_id()
         # pad the data with random data to force the MTU size correctly
         self._quic.send_datagram_frame(b'x' * 1024)
@@ -250,7 +251,7 @@ class RemotePairingQuicTunnel(RemotePairingTunnel, QuicConnectionProtocol):
             self.tun.write(LOOPBACK_HEADER + event.data)
 
     @staticmethod
-    def _encode_cdtunnel_packet(data: Mapping) -> bytes:
+    def _encode_cdtunnel_packet(data: dict) -> bytes:
         return CDTunnelPacket.build({'body': json.dumps(data).encode()})
 
 
@@ -288,7 +289,7 @@ class RemotePairingTcpTunnel(RemotePairingTunnel):
         except OSError:
             pass
 
-    async def request_tunnel_establish(self) -> Mapping:
+    async def request_tunnel_establish(self) -> dict:
         self._writer.write(self._encode_cdtunnel_packet(
             {'type': 'clientHandshakeRequest', 'mtu': self.REQUESTED_MTU}))
         await self._writer.drain()
@@ -355,26 +356,33 @@ class RemotePairingProtocol(StartTcpTunnel):
         pass
 
     @abstractmethod
-    async def receive_response(self) -> Mapping:
+    async def receive_response(self) -> dict:
         pass
 
     @abstractmethod
-    async def send_request(self, data: Mapping) -> None:
+    async def send_request(self, data: dict) -> None:
         pass
 
-    async def send_receive_request(self, data: Mapping) -> Mapping:
+    async def send_receive_request(self, data: dict) -> dict:
         await self.send_request(data)
         return await self.receive_response()
 
     async def connect(self, autopair: bool = True) -> None:
         await self._attempt_pair_verify()
 
-        if not await self._validate_pairing():
-            if autopair:
-                await self._pair()
-        self._init_client_server_main_encryption_keys()
+        if await self._validate_pairing():
+            # Pairing record validation succeeded, so we can just initiate the relevant session keys
+            self._init_client_server_main_encryption_keys()
+            return
 
-    async def create_quic_listener(self, private_key: RSAPrivateKey) -> Mapping:
+        if autopair:
+            await self._pair()
+            await self.close()
+
+            # Once pairing is completed, the remote endpoint closes the connection, so it must be re-established
+            raise RemotePairingCompletedError()
+
+    async def create_quic_listener(self, private_key: RSAPrivateKey) -> dict:
         request = {'request': {'_0': {'createListener': {
             'key': base64.b64encode(
                 private_key.public_key().public_bytes(Encoding.DER, PublicFormat.SubjectPublicKeyInfo)
@@ -385,7 +393,7 @@ class RemotePairingProtocol(StartTcpTunnel):
         response = await self._send_receive_encrypted_request(request)
         return response['createListener']
 
-    async def create_tcp_listener(self) -> Mapping:
+    async def create_tcp_listener(self) -> dict:
         request = {'request': {'_0': {'createListener': {
             'key': base64.b64encode(self.encryption_key).decode(),
             'peerConnectionsInfo': [{'owningPID': os.getpid(), 'owningProcessName': 'CoreDeviceService'}],
@@ -417,24 +425,28 @@ class RemotePairingProtocol(StartTcpTunnel):
         port = parameters['port']
 
         self.logger.debug(f'Connecting to {host}:{port}')
-        async with aioquic_connect(
-                host,
-                port,
-                configuration=configuration,
-                create_protocol=RemotePairingQuicTunnel,
-        ) as client:
-            self.logger.debug('quic connected')
-            client = cast(RemotePairingQuicTunnel, client)
-            await client.wait_connected()
-            handshake_response = await client.request_tunnel_establish()
-            client.start_tunnel(handshake_response['clientParameters']['address'],
-                                handshake_response['clientParameters']['mtu'])
-            try:
-                yield TunnelResult(
-                    client.tun.name, handshake_response['serverAddress'], handshake_response['serverRSDPort'],
-                    TunnelProtocol.QUIC, client)
-            finally:
-                await client.stop_tunnel()
+        try:
+            async with aioquic_connect(
+                    host,
+                    port,
+                    configuration=configuration,
+                    create_protocol=RemotePairingQuicTunnel,
+            ) as client:
+                self.logger.debug('quic connected')
+                client = cast(RemotePairingQuicTunnel, client)
+                await client.wait_connected()
+                handshake_response = await client.request_tunnel_establish()
+                client.start_tunnel(handshake_response['clientParameters']['address'],
+                                    handshake_response['clientParameters']['mtu'])
+                try:
+                    yield TunnelResult(
+                        client.tun.name, handshake_response['serverAddress'], handshake_response['serverRSDPort'],
+                        TunnelProtocol.QUIC, client)
+                finally:
+                    await client.stop_tunnel()
+        except ConnectionError:
+            raise QuicProtocolNotSupportedError(
+                'iOS 18.2+ removed QUIC protocol support. Use TCP instead (requires python3.13+)')
 
     @asynccontextmanager
     async def start_tcp_tunnel(self) -> AsyncGenerator[TunnelResult, None]:
@@ -443,9 +455,17 @@ class RemotePairingProtocol(StartTcpTunnel):
         port = parameters['port']
         sock = create_connection((host, port))
         OSUTIL.set_keepalive(sock)
-        ctx = SSLPSKContext(ssl.PROTOCOL_TLSv1_2)
-        ctx.psk = self.encryption_key
-        ctx.set_ciphers('PSK')
+        if sys.version_info >= (3, 13):
+            ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            ctx.set_ciphers('PSK')
+            ctx.set_psk_client_callback(lambda hint: (None, self.encryption_key))
+        else:
+            # TODO: remove this when python3.12 becomes deprecated
+            ctx = SSLPSKContext(ssl.PROTOCOL_TLSv1_2)
+            ctx.psk = self.encryption_key
+            ctx.set_ciphers('PSK')
         reader, writer = await asyncio.open_connection(sock=sock, ssl=ctx, server_hostname='')
         tunnel = RemotePairingTcpTunnel(reader, writer)
         handshake_response = await tunnel.request_tunnel_establish()
@@ -470,7 +490,7 @@ class RemotePairingProtocol(StartTcpTunnel):
         OSUTIL.chown_to_non_sudo_if_needed(self.pair_record_path)
 
     @property
-    def pair_record(self) -> Optional[Mapping]:
+    def pair_record(self) -> Optional[dict]:
         if self.pair_record_path.exists():
             return plistlib.loads(self.pair_record_path.read_bytes())
         return None
@@ -562,7 +582,7 @@ class RemotePairingProtocol(StartTcpTunnel):
         data = self.decode_tlv(PairingDataComponentTLVBuf.parse(response))
         assert self.srp_context.verify_proof(data[PairingDataComponentType.PROOF].hex().encode())
 
-    async def _save_pair_record_on_peer(self) -> Mapping:
+    async def _save_pair_record_on_peer(self) -> dict:
         # HKDF with above computed key (SRP_compute_key) + Pair-Setup-Encrypt-Salt + Pair-Setup-Encrypt-Info
         # result used as key for chacha20-poly1305
         setup_encryption_key = HKDF(
@@ -670,7 +690,6 @@ class RemotePairingProtocol(StartTcpTunnel):
         response = await self._send_receive_pairing_data({'data': pairing_data,
                                                           'kind': 'verifyManualPairing',
                                                           'startNewSession': True})
-
         data = self.decode_tlv(PairingDataComponentTLVBuf.parse(response))
 
         if PairingDataComponentType.ERROR in data:
@@ -729,7 +748,7 @@ class RemotePairingProtocol(StartTcpTunnel):
     async def _send_pair_verify_failed(self) -> None:
         await self._send_plain_request({'event': {'_0': {'pairVerifyFailed': {}}}})
 
-    async def _send_receive_encrypted_request(self, request: Mapping) -> Mapping:
+    async def _send_receive_encrypted_request(self, request: dict) -> dict:
         nonce = Int64ul.build(self._encrypted_sequence_number) + b'\x00' * 4
         encrypted_data = self.client_cip.encrypt(
             nonce,
@@ -751,15 +770,15 @@ class RemotePairingProtocol(StartTcpTunnel):
 
         return response
 
-    async def _send_receive_handshake(self, handshake_data: Mapping) -> Mapping:
+    async def _send_receive_handshake(self, handshake_data: dict) -> dict:
         response = await self._send_receive_plain_request({'request': {'_0': {'handshake': {'_0': handshake_data}}}})
         return response['response']['_1']['handshake']['_0']
 
-    async def _send_receive_pairing_data(self, pairing_data: Mapping) -> bytes:
+    async def _send_receive_pairing_data(self, pairing_data: dict) -> bytes:
         await self._send_pairing_data(pairing_data)
         return await self._receive_pairing_data()
 
-    async def _send_pairing_data(self, pairing_data: Mapping) -> None:
+    async def _send_pairing_data(self, pairing_data: dict) -> None:
         await self._send_plain_request({'event': {'_0': {'pairingData': {'_0': pairing_data}}}})
 
     async def _receive_pairing_data(self) -> bytes:
@@ -774,22 +793,22 @@ class RemotePairingProtocol(StartTcpTunnel):
                                          .get('NSLocalizedDescription'))
         raise PyMobileDevice3Exception(f'Got an unknown state message: {response}')
 
-    async def _send_receive_plain_request(self, plain_request: Mapping):
+    async def _send_receive_plain_request(self, plain_request: dict):
         await self._send_plain_request(plain_request)
         return await self._receive_plain_response()
 
-    async def _send_plain_request(self, plain_request: Mapping) -> None:
+    async def _send_plain_request(self, plain_request: dict) -> None:
         await self.send_request({'message': {'plain': {'_0': plain_request}},
                                  'originatedBy': 'host',
                                  'sequenceNumber': XpcUInt64Type(self._sequence_number)})
         self._sequence_number += 1
 
-    async def _receive_plain_response(self) -> Mapping:
+    async def _receive_plain_response(self) -> dict:
         response = await self.receive_response()
         return response['message']['plain']['_0']
 
     @staticmethod
-    def decode_tlv(tlv_list: List[Container]) -> Mapping:
+    def decode_tlv(tlv_list: list[Container]) -> dict:
         result = {}
         for tlv in tlv_list:
             if tlv.type in result:
@@ -814,24 +833,28 @@ class CoreDeviceTunnelService(RemotePairingProtocol, RemoteService):
         self.version: Optional[int] = None
 
     async def connect(self, autopair: bool = True) -> None:
+        # Establish RemoteXPC connection to `SERVICE_NAME`
         await RemoteService.connect(self)
         try:
             response = await self.service.receive_response()
             self.version = response['ServiceVersion']
+
+            # Perform pairing if necessary and start a trusted RemoteXPC connection
             await RemotePairingProtocol.connect(self, autopair=autopair)
             self.hostname = self.service.address[0]
-        except:  # noqa: E722
+        except Exception:  # noqa: E722
             await self.service.close()
+            raise
 
     async def close(self) -> None:
         await self.rsd.close()
         await self.service.close()
 
-    async def receive_response(self) -> Mapping:
+    async def receive_response(self) -> dict:
         response = await self.service.receive_response()
         return response['value']
 
-    async def send_request(self, data: Mapping) -> None:
+    async def send_request(self, data: dict) -> None:
         return await self.service.send_request({
             'mangledTypeName': 'RemotePairing.ControlChannelMessageEnvelope', 'value': data})
 
@@ -873,12 +896,12 @@ class RemotePairingTunnelService(RemotePairingProtocol):
         self._writer = None
         self._reader = None
 
-    async def receive_response(self) -> Mapping:
+    async def receive_response(self) -> dict:
         await self._reader.readexactly(len(REPAIRING_PACKET_MAGIC))
         size = struct.unpack('>H', await self._reader.readexactly(2))[0]
         return json.loads(await self._reader.readexactly(size))
 
-    async def send_request(self, data: Mapping) -> None:
+    async def send_request(self, data: dict) -> None:
         self._writer.write(
             RPPairingPacket.build({'body': json.dumps(data, default=self._default_json_encoder).encode()}))
         await self._writer.drain()
@@ -905,20 +928,12 @@ class RemotePairingManualPairingService(RemotePairingTunnelService):
         await RemotePairingProtocol.connect(self, autopair=autopair)
 
 
-class CoreDeviceTunnelProxy(StartTcpTunnel, LockdownService):
+class CoreDeviceTunnelProxy(StartTcpTunnel):
     SERVICE_NAME = 'com.apple.internal.devicecompute.CoreDeviceProxy'
 
     def __init__(self, lockdown: LockdownServiceProvider) -> None:
-        LockdownService.__init__(self, lockdown, self.SERVICE_NAME)
         self._lockdown = lockdown
         self._service: Optional[ServiceConnection] = None
-
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        self._loop = loop
 
     @property
     def remote_identifier(self) -> str:
@@ -946,7 +961,13 @@ class CoreDeviceTunnelProxy(StartTcpTunnel, LockdownService):
 async def create_core_device_tunnel_service_using_rsd(
         rsd: RemoteServiceDiscoveryService, autopair: bool = True) -> CoreDeviceTunnelService:
     service = CoreDeviceTunnelService(rsd)
-    await service.connect(autopair=autopair)
+    try:
+        await service.connect(autopair=autopair)
+    except RemotePairingCompletedError:
+        # The connection must be reestablished upon pairing is completed
+        await service.close()
+        service = CoreDeviceTunnelService(rsd)
+        await service.connect(autopair=autopair)
     return service
 
 
@@ -1023,10 +1044,11 @@ async def start_tunnel(
 
 async def get_core_device_tunnel_services(
         bonjour_timeout: float = DEFAULT_BONJOUR_TIMEOUT,
-        udid: Optional[str] = None) -> List[CoreDeviceTunnelService]:
+        udid: Optional[str] = None) -> list[CoreDeviceTunnelService]:
     result = []
     for rsd in await get_rsds(bonjour_timeout=bonjour_timeout, udid=udid):
-        if udid is None and Version(rsd.product_version) < Version('17.0'):
+        if udid is None and ((Version(rsd.product_version) < Version('17.0'))
+                             and not rsd.product_type.startswith('RealityDevice')):
             logger.debug(f'Skipping {rsd.udid}:, iOS {rsd.product_version} < 17.0')
             await rsd.close()
             continue
@@ -1041,7 +1063,7 @@ async def get_core_device_tunnel_services(
 
 async def get_remote_pairing_tunnel_services(
         bonjour_timeout: float = DEFAULT_BONJOUR_TIMEOUT,
-        udid: Optional[str] = None) -> List[RemotePairingTunnelService]:
+        udid: Optional[str] = None) -> list[RemotePairingTunnelService]:
     result = []
     for answer in await browse_remotepairing(timeout=bonjour_timeout):
         for ip in answer.ips:

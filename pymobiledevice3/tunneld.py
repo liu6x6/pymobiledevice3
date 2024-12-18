@@ -6,7 +6,7 @@ import os
 import signal
 import traceback
 from contextlib import asynccontextmanager, suppress
-from typing import Dict, List, Mapping, Optional, Tuple, Union
+from typing import Optional, Union
 
 import construct
 import fastapi
@@ -18,8 +18,8 @@ from packaging.version import Version
 
 from pymobiledevice3 import usbmux
 from pymobiledevice3.bonjour import REMOTED_SERVICE_NAMES, browse
-from pymobiledevice3.exceptions import ConnectionFailedError, ConnectionFailedToUsbmuxdError, GetProhibitedError, \
-    InvalidServiceError, MuxException, PairingError, TunneldConnectionError
+from pymobiledevice3.exceptions import ConnectionFailedError, ConnectionFailedToUsbmuxdError, DeviceNotFoundError, \
+    GetProhibitedError, InvalidServiceError, LockdownError, MuxException, PairingError, TunneldConnectionError
 from pymobiledevice3.lockdown import create_using_usbmux, get_mobdev2_lockdowns
 from pymobiledevice3.osu.os_utils import get_os_utils
 from pymobiledevice3.remote.common import TunnelProtocol
@@ -53,11 +53,11 @@ class TunnelTask:
 
 
 class TunneldCore:
-    def __init__(self, protocol: TunnelProtocol = TunnelProtocol.QUIC, wifi_monitor: bool = True,
+    def __init__(self, protocol: TunnelProtocol = TunnelProtocol.DEFAULT, wifi_monitor: bool = True,
                  usb_monitor: bool = True, usbmux_monitor: bool = True, mobdev2_monitor: bool = True) -> None:
         self.protocol = protocol
-        self.tasks: List[asyncio.Task] = []
-        self.tunnel_tasks: Dict[str, TunnelTask] = {}
+        self.tasks: list[asyncio.Task] = []
+        self.tunnel_tasks: dict[str, TunnelTask] = {}
         self.usb_monitor = usb_monitor
         self.wifi_monitor = wifi_monitor
         self.usbmux_monitor = usbmux_monitor
@@ -140,7 +140,8 @@ class TunneldCore:
                             continue
                         try:
                             service = CoreDeviceTunnelProxy(create_using_usbmux(mux_device.serial))
-                        except (MuxException, InvalidServiceError, GetProhibitedError, construct.core.StreamError):
+                        except (MuxException, InvalidServiceError, GetProhibitedError, construct.core.StreamError,
+                                ConnectionAbortedError, DeviceNotFoundError, LockdownError):
                             continue
                         self.tunnel_tasks[task_identifier] = TunnelTask(
                             udid=mux_device.serial,
@@ -213,10 +214,12 @@ class TunneldCore:
                         f'since there is already an active one for same udid')
         except asyncio.CancelledError:
             pass
-        except (ConnectionResetError, StreamError) as e:
-            logger.debug(f'got {e.__class__.__name__} from {asyncio.current_task().get_name()}')
-        except (asyncio.exceptions.IncompleteReadError, TimeoutError, OSError) as e:
-            logger.debug(f'got {e.__class__.__name__} from tunnel --rsd {tun.address} {tun.port}')
+        except (asyncio.exceptions.IncompleteReadError, TimeoutError, OSError, ConnectionResetError, StreamError,
+                InvalidServiceError) as e:
+            if tun is None:
+                logger.debug(f'got {e.__class__.__name__} from {asyncio.current_task().get_name()}')
+            else:
+                logger.debug(f'got {e.__class__.__name__} from tunnel --rsd {tun.address} {tun.port}')
         except Exception:
             logger.error(f'got exception from {asyncio.current_task().get_name()}: {traceback.format_exc()}')
         finally:
@@ -297,7 +300,7 @@ class TunneldCore:
             with suppress(asyncio.CancelledError):
                 await task
 
-    def get_tunnels_ips(self) -> Dict:
+    def get_tunnels_ips(self) -> dict:
         """ Retrieve the available tunnel tasks and format them as {UDID: [IP]} """
         tunnels_ips = {}
         for ip, active_tunnel in self.tunnel_tasks.items():
@@ -350,7 +353,7 @@ class TunneldRunner:
                                          usbmux_monitor=usbmux_monitor, mobdev2_monitor=mobdev2_monitor)
 
         @self._app.get('/')
-        async def list_tunnels() -> Mapping[str, List[Mapping]]:
+        async def list_tunnels() -> dict[str, list[dict]]:
             """ Retrieve the available tunnels and format them as {UUID: TUNNEL_ADDRESS} """
             tunnels = {}
             for ip, active_tunnel in self._tunneld_core.tunnel_tasks.items():
@@ -358,29 +361,29 @@ class TunneldRunner:
                     continue
                 if active_tunnel.udid not in tunnels:
                     tunnels[active_tunnel.udid] = []
-                tunnels[active_tunnel.udid].append(({
+                tunnels[active_tunnel.udid].append({
                     'tunnel-address': active_tunnel.tunnel.address,
                     'tunnel-port': active_tunnel.tunnel.port,
-                    'interface': ip}))
+                    'interface': ip})
             return tunnels
 
         @self._app.get('/shutdown')
         async def shutdown() -> fastapi.Response:
             """ Shutdown Tunneld """
             os.kill(os.getpid(), signal.SIGINT)
-            data = json.dumps({'operation': 'shutdown', 'data': True, 'message': 'Server shutting down...'})
+            data = {'operation': 'shutdown', 'data': True, 'message': 'Server shutting down...'}
             return generate_http_response(data)
 
         @self._app.get('/clear_tunnels')
         async def clear_tunnels() -> fastapi.Response:
             self._tunneld_core.clear()
-            data = json.dumps({'operation': 'clear_tunnels', 'data': True, 'message': 'Cleared tunnels...'})
+            data = {'operation': 'clear_tunnels', 'data': True, 'message': 'Cleared tunnels...'}
             return generate_http_response(data)
 
         @self._app.get('/cancel')
         async def cancel_tunnel(udid: str) -> fastapi.Response:
             self._tunneld_core.cancel(udid=udid)
-            data = json.dumps({'operation': 'cancel', 'udid': udid, 'data': True, 'message': f'tunnel {udid} Canceled ...'})
+            data = {'operation': 'cancel', 'udid': udid, 'data': True, 'message': f'tunnel {udid} Canceled ...'}
             return generate_http_response(data)
 
         @self._app.get('/hello')
@@ -474,18 +477,18 @@ class TunneldRunner:
         uvicorn.run(self._app, host=self.host, port=self.port, loop='asyncio')
 
 
-async def async_get_tunneld_devices(tunneld_address: Tuple[str, int] = TUNNELD_DEFAULT_ADDRESS) \
-        -> List[RemoteServiceDiscoveryService]:
+async def async_get_tunneld_devices(tunneld_address: tuple[str, int] = TUNNELD_DEFAULT_ADDRESS) \
+        -> list[RemoteServiceDiscoveryService]:
     tunnels = _list_tunnels(tunneld_address)
     return await _create_rsds_from_tunnels(tunnels)
 
 
-def get_tunneld_devices(tunneld_address: Tuple[str, int] = TUNNELD_DEFAULT_ADDRESS) \
-        -> List[RemoteServiceDiscoveryService]:
+def get_tunneld_devices(tunneld_address: tuple[str, int] = TUNNELD_DEFAULT_ADDRESS) \
+        -> list[RemoteServiceDiscoveryService]:
     return get_asyncio_loop().run_until_complete(async_get_tunneld_devices(tunneld_address))
 
 
-async def async_get_tunneld_device_by_udid(udid: str, tunneld_address: Tuple[str, int] = TUNNELD_DEFAULT_ADDRESS) \
+async def async_get_tunneld_device_by_udid(udid: str, tunneld_address: tuple[str, int] = TUNNELD_DEFAULT_ADDRESS) \
         -> Optional[RemoteServiceDiscoveryService]:
     tunnels = _list_tunnels(tunneld_address)
     if udid not in tunnels:
@@ -494,12 +497,12 @@ async def async_get_tunneld_device_by_udid(udid: str, tunneld_address: Tuple[str
     return rsds[0]
 
 
-def get_tunneld_device_by_udid(udid: str, tunneld_address: Tuple[str, int] = TUNNELD_DEFAULT_ADDRESS) \
+def get_tunneld_device_by_udid(udid: str, tunneld_address: tuple[str, int] = TUNNELD_DEFAULT_ADDRESS) \
         -> Optional[RemoteServiceDiscoveryService]:
     return get_asyncio_loop().run_until_complete(async_get_tunneld_device_by_udid(udid, tunneld_address))
 
 
-def _list_tunnels(tunneld_address: Tuple[str, int] = TUNNELD_DEFAULT_ADDRESS) -> Mapping[str, List[Mapping]]:
+def _list_tunnels(tunneld_address: tuple[str, int] = TUNNELD_DEFAULT_ADDRESS) -> dict[str, list[dict]]:
     try:
         # Get the list of tunnels from the specified address
         resp = requests.get(f'http://{tunneld_address[0]}:{tunneld_address[1]}')
@@ -509,7 +512,7 @@ def _list_tunnels(tunneld_address: Tuple[str, int] = TUNNELD_DEFAULT_ADDRESS) ->
     return tunnels
 
 
-async def _create_rsds_from_tunnels(tunnels: Mapping[str, List[Mapping]]) -> List[RemoteServiceDiscoveryService]:
+async def _create_rsds_from_tunnels(tunnels: dict[str, list[dict]]) -> list[RemoteServiceDiscoveryService]:
     rsds = []
     for udid, details in tunnels.items():
         for tunnel_details in details:

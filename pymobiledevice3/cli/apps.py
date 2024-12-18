@@ -1,5 +1,3 @@
-from typing import List
-
 import click
 
 from pymobiledevice3.cli.cli_common import Command, print_json
@@ -33,7 +31,7 @@ def apps_list(service_provider: LockdownServiceProvider, app_type: str, calculat
 @apps.command('query', cls=Command)
 @click.argument('bundle_identifiers', nargs=-1)
 @click.option('--calculate-sizes/--no-calculate-size', default=False)
-def apps_query(service_provider: LockdownServiceProvider, bundle_identifiers: List[str], calculate_sizes: bool) -> None:
+def apps_query(service_provider: LockdownServiceProvider, bundle_identifiers: list[str], calculate_sizes: bool) -> None:
     """ query installed apps """
     print_json(InstallationProxyService(lockdown=service_provider)
                .get_apps(calculate_sizes=calculate_sizes, bundle_identifiers=bundle_identifiers))
@@ -47,10 +45,10 @@ def uninstall(service_provider: LockdownClient, bundle_id):
 
 
 @apps.command('install', cls=Command)
-@click.argument('ipa_or_app_path', type=click.Path(exists=True))
-def install(service_provider: LockdownServiceProvider, ipa_or_app_path: str) -> None:
-    """ install given .ipa/.app """
-    InstallationProxyService(lockdown=service_provider).install_from_local(ipa_or_app_path)
+@click.argument('package', type=click.Path(exists=True))
+def install(service_provider: LockdownServiceProvider, package: str) -> None:
+    """ install given .ipa/.app/.ipcc """
+    InstallationProxyService(lockdown=service_provider).install_from_local(package)
 
 
 @apps.command('afc', cls=Command)

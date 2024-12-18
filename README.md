@@ -79,6 +79,14 @@ eval "$(_PYMOBILEDEVICE3_COMPLETE=source_zsh pymobiledevice3)"
 eval "$(_PYMOBILEDEVICE3_COMPLETE=zsh_source pymobiledevice3)"
 ```
 
+If you're not a macOS user:
+
+- If you're using a Windows workstation, you'll need to install and run
+  execute [iTunes](https://apps.microsoft.com/detail/9pb2mz1zmb1s?hl=en-US&gl=US).
+
+- If you're using a Linux workstation, install [`usbmuxd`](https://github.com/libimobiledevice/usbmuxd) (Available on
+  Ubuntu via `apt`)
+
 ### OpenSSL libraries
 
 Currently, openssl is explicitly required if using on older iOS version (<13).
@@ -264,10 +272,10 @@ There is A LOT you may do on the device using `pymobiledevice3`. This is just a 
 # Listing connected devices
 pymobiledevice3 usbmux list
 
-# Discover network devices using bonjour
-pymobiledevice3 bonjour browse
+# Browse RemoteXPC devices using bonjour
+pymobiledevice3 bonjour rsd
 
-# View all syslog lines (including debug messages
+# View all syslog lines (including debug messages)
 pymobiledevice3 syslog live
 
 # Filter out only messages containing the word "SpringBoard"
@@ -387,6 +395,8 @@ See [CONTRIBUTING](https://github.com/doronz88/pymobiledevice3/blob/master/CONTR
 ## Useful info
 
 Please see [misc](https://github.com/doronz88/pymobiledevice3/blob/master/misc)
+
+Library uses WindowsSelectorEventLoopPolicy for asyncio on Windows platform. Please see discussion [misc](https://github.com/doronz88/pymobiledevice3/issues/1217)
 
 ## Copyright notice
 

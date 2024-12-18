@@ -2,7 +2,7 @@ import base64
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import List, Mapping, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 from pymobiledevice3.bonjour import DEFAULT_BONJOUR_TIMEOUT, browse_remoted
 from pymobiledevice3.common import get_home_folder
@@ -28,13 +28,13 @@ RSD_PORT = 58783
 
 
 class RemoteServiceDiscoveryService(LockdownServiceProvider):
-    def __init__(self, address: Tuple[str, int], name: Optional[str] = None) -> None:
+    def __init__(self, address: tuple[str, int], name: Optional[str] = None) -> None:
         super().__init__()
         self.name = name
         self.service = RemoteXPCConnection(address)
-        self.peer_info: Optional[Mapping] = None
+        self.peer_info: Optional[dict] = None
         self.lockdown: Optional[LockdownClient] = None
-        self.all_values: Optional[Mapping] = None
+        self.all_values: Optional[dict] = None
 
     @property
     def product_version(self) -> str:
@@ -67,7 +67,7 @@ class RemoteServiceDiscoveryService(LockdownServiceProvider):
                 self.start_lockdown_service('com.apple.mobile.lockdown.remote.untrusted'))
         self.all_values = self.lockdown.all_values
 
-    def get_value(self, domain: str = None, key: str = None):
+    def get_value(self, domain: Optional[str] = None, key: Optional[str] = None) -> Any:
         return self.lockdown.get_value(domain, key)
 
     def start_lockdown_service_without_checkin(self, name: str) -> ServiceConnection:
@@ -143,7 +143,7 @@ class RemoteServiceDiscoveryService(LockdownServiceProvider):
         self.connect()
         return self
 
-async def get_remoted_devices(timeout: float = DEFAULT_BONJOUR_TIMEOUT) -> List[RSDDevice]:
+async def get_remoted_devices(timeout: float = DEFAULT_BONJOUR_TIMEOUT) -> list[RSDDevice]:
     result = []
     for hostname in await browse_remoted(timeout):
         with RemoteServiceDiscoveryService((hostname, RSD_PORT)) as rsd:

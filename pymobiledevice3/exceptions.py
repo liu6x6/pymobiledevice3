@@ -14,10 +14,10 @@ __all__ = [
     'LaunchingApplicationError', 'BadCommandError', 'BadDevError', 'ConnectionFailedError', 'CoreDeviceError',
     'AccessDeniedError', 'RSDRequiredError', 'SysdiagnoseTimeoutError', 'GetProhibitedError',
     'FeatureNotSupportedError', 'OSNotSupportedError', 'DeprecationError', 'NotEnoughDiskSpaceError',
-    'CloudConfigurationAlreadyPresentError'
+    'CloudConfigurationAlreadyPresentError', 'QuicProtocolNotSupportedError', 'RemotePairingCompletedError',
 ]
 
-from typing import List, Optional
+from typing import Optional
 
 
 class PyMobileDevice3Exception(Exception):
@@ -305,7 +305,7 @@ class InvalidServiceError(LockdownError):
 
 class InspectorEvaluateError(PyMobileDevice3Exception):
     def __init__(self, class_name: str, message: str, line: Optional[int] = None, column: Optional[int] = None,
-                 stack: Optional[List[str]] = None):
+                 stack: Optional[list[str]] = None):
         super().__init__()
         self.class_name = class_name
         self.message = message
@@ -390,3 +390,18 @@ class FeatureNotSupportedError(SupportError):
     def __init__(self, os_name, feature):
         super().__init__(os_name)
         self.feature = feature
+
+
+class QuicProtocolNotSupportedError(PyMobileDevice3Exception):
+    """ QUIC tunnel support was removed on iOS 18.2+ """
+    pass
+
+
+class RemotePairingCompletedError(PyMobileDevice3Exception):
+    """
+    Raised upon pairing completion using the `remotepairingdeviced` service (RemoteXPC).
+
+    remotepairingdeviced closes connection after pairing, so client must re-establish it after pairing is
+    completed.
+    """
+    pass
