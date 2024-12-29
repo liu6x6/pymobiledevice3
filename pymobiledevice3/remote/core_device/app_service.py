@@ -128,7 +128,7 @@ class AppServiceService(CoreDeviceService):
             'bundleIdentifier': bundle_identifier
         })
     
-    def launch_application6(self) -> Mapping:
+    def launch_application6(self) -> list[dict]:
         input1 =  {
                     "applicationSpecifier": {
                         "bundleIdentifier": {
@@ -206,7 +206,7 @@ class AppServiceService(CoreDeviceService):
         return self.invoke('com.apple.coredevice.feature.launchapplication', input1)  
 
 
-    def test_launch_application(self, installResult: dict, sessionId: str, io_uuid: uuid) -> Mapping:
+    def test_launch_application(self, installResult: dict, sessionId: str, io_uuid: uuid) -> list[dict]:
         sessionIdentifier = sessionId
         sideChannel = uuid.uuid4()
         DBSequence = XpcUInt64Type(installResult["DBSequence"])
@@ -303,7 +303,7 @@ class AppServiceService(CoreDeviceService):
         return output
     
 
-    async def test_launch_application2(self, sessionIdentifier: str, stdID: uuid, XCTestBundlePath: str) -> Mapping:
+    async def test_launch_application2(self, sessionIdentifier: str, stdID: uuid, XCTestBundlePath: str) -> list[dict]:
 
         ops = {
             "ActivateSuspended": 1,
@@ -356,7 +356,7 @@ class AppServiceService(CoreDeviceService):
         output = await self.invoke("com.apple.coredevice.feature.launchapplication", _input)
         return output
 
-    def launch_application_raw(self,data: bytes) -> Mapping:
+    def launch_application_raw(self,data: bytes) -> list[dict]:
         return self.invoke_raw(data)
 
         deviceIdentifier = "2070E331-97DE-429F-8D90-83133BE11FF2"
