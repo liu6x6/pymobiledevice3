@@ -1,4 +1,11 @@
-
+from construct import ConstError, StreamError
+from pymobiledevice3.services.remote_server import message_aux_t_struct
+import os
+import io
+import plistlib
+from bpylist2 import archiver
+from bpylist2.archiver import ArchivedObject
+from queue import Empty, Queue
 
 
 from pymobiledevice3.services.remote_server import NSURL, NSUUID, Channel, ChannelFragmenter, MessageAux, \
@@ -98,6 +105,9 @@ class ParseDTXHelper():
     def printData(self,mheader,fdata,pheader,aux,data):
         if data is None and aux is None:
             print("empty DTXMessage")
+            print("mheader: ", mheader)
+            print("fdata: ", len(fdata))
+            print("pheader: ", pheader)
             return
         if data == "_XCT_logDebugMessage:":
             print("get _XCT_logDebugMessage:") #data is a list

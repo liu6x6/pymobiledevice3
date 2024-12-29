@@ -18,7 +18,7 @@ from pymobiledevice3.remote.tunnel_service import PairingDataComponentTLVBuf
 from pymobiledevice3.remote.remotexpc import HTTP2_MAGIC
 from pymobiledevice3.remote.xpc_message import XpcWrapper, decode_xpc_object
 from pymobiledevice3.remote.remote_service_discovery import RemoteServiceDiscoveryService
-from pymobiledevice3.services.parse_plist import ParseDTXHelper
+from pymobiledevice3.services.parse_xpc_header import ParseDTXHelper
 from pymobiledevice3.ParsePlistHelper import ParsePlistHelper
 
 import time
@@ -76,13 +76,13 @@ def get_go_rsd():
     resp = requests.get(f'http://127.0.0.1:60105/tunnels')
     parsed_data = resp.json()
     tunnel_info = parsed_data[0]
-    uuid =  tunnel_info['uuid']
+    uuid =  tunnel_info['udid']
     tunnel_address = tunnel_info['address']
     tunnel_port = tunnel_info['rsdPort']
     return uuid, tunnel_address, tunnel_port
 
 # device_udid,address,rsd_port = get_go_rsd()
-device_udid,address,rsd_port = get_py3_rsd()
+device_udid,address,rsd_port = get_go_rsd()
 
 interface_name = get_interface_name(address)
 
