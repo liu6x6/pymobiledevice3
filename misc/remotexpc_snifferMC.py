@@ -18,7 +18,7 @@ from pymobiledevice3.remote.tunnel_service import PairingDataComponentTLVBuf
 from pymobiledevice3.remote.remotexpc import HTTP2_MAGIC
 from pymobiledevice3.remote.xpc_message import XpcWrapper, decode_xpc_object
 from pymobiledevice3.remote.remote_service_discovery import RemoteServiceDiscoveryService
-from pymobiledevice3.services.remote_server import ParseDTXHelper
+from pymobiledevice3.services.parse_plist import ParseDTXHelper
 from pymobiledevice3.ParsePlistHelper import ParsePlistHelper
 
 import time
