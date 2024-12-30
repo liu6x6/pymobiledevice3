@@ -105,15 +105,16 @@ class ParseDTXHelper():
     def printData(self,mheader,fdata,pheader,aux,data):
         if data is None and aux is None:
             print("empty DTXMessage")
-            print("mheader: ", mheader)
-            print("fdata: ", len(fdata))
-            print("pheader: ", pheader)
-            return
+            # print("mheader: ", mheader)
+            # print("fdata: ", len(fdata))
+            # print("pheader: ", pheader)
+            # return
         if data == "_XCT_logDebugMessage:":
             print("get _XCT_logDebugMessage:") #data is a list
             for it in aux:
                 print(it.value)
-            return
+            # return
+        print("DTX Message =======")
         print("mheader: ", mheader)
         print("fdata: ", len(fdata))
         print("pheader: ", pheader)
