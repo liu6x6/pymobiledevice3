@@ -73,7 +73,75 @@ class XCTCapabilities():
                 print(e)
                 pass
         return metadata_dict
+
+class XCTestConfiguration():
+    @staticmethod
+    def decode_archive(archive_obj):
+        metadata_dict = {}
+        for key, value in archive_obj.object.items():
+            try:
+                if key == "$class":
+                    continue
+                decoded_value = archive_obj.decode(key)
+                metadata_dict[key] = decoded_value
+            except Exception as e:
+                print(e)
+                pass
+        return metadata_dict
     
+    _default = {
+        # 'testBundleURL': UID(3),
+        # 'sessionIdentifier': UID(8), # UUID
+        'aggregateStatisticsBeforeCrash': {
+            'XCSuiteRecordsKey': {}
+        },
+        'IDECapabilities': {
+            'expected failure test capability':         True,
+		    'test case run configurations':             True,
+		    'test timeout capability':                  True,
+		    'test iterations':                          True,
+		    'request diagnostics for specific devices': True,
+		    'delayed attachment transfer':              True,
+		    'skipped test capability':                  True,
+		    'daemon container sandbox extension':       True,
+		    'ubiquitous test identifiers':              True,
+		    'XCTIssue capability':                      True,
+        },
+        'automationFrameworkPath': '/Developer/Library/PrivateFrameworks/XCTAutomationSupport.framework',
+        'baselineFileRelativePath': None,
+        'baselineFileURL': None,
+        'defaultTestExecutionTimeAllowance': 0,
+        'disablePerformanceMetrics': False,
+        'emitOSLogs': False,
+        'formatVersion': plistlib.UID(2),  # store in UID
+        'gatherLocalizableStringsData': False,
+        'initializeForUITesting': True,
+        'maximumTestExecutionTimeAllowance': None,
+        'productModuleName': 'WebDriverAgentRunner',  # set to other value is also OK
+        'randomExecutionOrderingSeed': 0,
+        'reportActivities': True,
+        'reportResultsToIDE': True,
+        'systemAttachmentLifetime': 2,
+        'targetApplicationArguments': [],  # maybe useless
+        'targetApplicationBundleID': 'com.apple.test.WebDriverAgentRunner-Runner',
+        'targetApplicationEnvironment': None,
+        'targetApplicationPath': '/whatever-it-does-not-matter/but-should-not-be-empty',
+        'testApplicationDependencies': {},
+        'testApplicationUserOverrides': 0,
+        'testBundleRelativePath': 0,
+        'testExecutionOrdering': 0,
+        'testTimeoutsEnabled': False,
+        'testsDrivenByIDE': False,
+        'testsMustRunOnMainThread': True,
+        'testsToRun': None,
+        'testsToSkip': None,
+        'treatMissingBaselinesAsFailures': False,
+        'userAttachmentLifetime': 0,
+        'preferredScreenCaptureFormat': 2
+    }
+
+
+
 class DTTapMessage:
     @staticmethod
     def decode_archive(archive_obj):

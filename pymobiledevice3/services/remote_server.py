@@ -4,11 +4,11 @@ import os
 import plistlib
 import uuid
 from functools import partial
-from pprint import pprint
 from queue import Empty, Queue
 
 import IPython
 from bpylist2 import archiver
+from bpylist2.archiver import ArchivedObject
 from construct import Adapter, Const, Default, GreedyBytes, GreedyRange, Int16ul, Int32sl, Int32ul, Int64ul, Prefixed, \
     Select, Struct, Switch, this
 from pygments import formatters, highlight, lexers
@@ -16,7 +16,8 @@ from pygments import formatters, highlight, lexers
 from pymobiledevice3.exceptions import DvtException, UnrecognizedSelectorError
 from pymobiledevice3.lockdown_service_provider import LockdownServiceProvider
 from pymobiledevice3.services.lockdown_service import LockdownService
-
+import uuid
+import pprint
 SHELL_USAGE = '''
 # This shell allows you to send messages to the DVTSecureSocketProxy and receive answers easily.
 # Generally speaking, each channel represents a group of actions.
@@ -95,6 +96,16 @@ class MessageAux:
         self.values.append({'type': 6, 'value': value})
         return self
 
+    def append_signed_int(self, value: int):
+        """ 有符号 int """
+        self.values.append({'type': 3, 'value': value})
+        return self
+    
+    def append_signed_long(self, value: int):
+        """ 有符号 long """
+        self.values.append({'type': 6, 'value': value})
+        return self
+
     def append_obj(self, value):
         self.values.append({'type': 2, 'value': value})
         return self
@@ -103,10 +114,72 @@ class MessageAux:
         return message_aux_t_struct.build(dict(aux=self.values))
 
 
+class XCTRepetitionPolicy():
+    @staticmethod
+    def decode_archive(archive_obj):
+        metadata_dict = {}
+        for key, value in archive_obj.object.items():
+            try:
+                if key == "$class":
+                    continue
+                decoded_value = archive_obj.decode(key)
+                metadata_dict[key] = decoded_value
+            except Exception as e:
+                print(e)
+                pass
+        return metadata_dict
+    
+class XCTRuntimeIssueDetectionPolicy():
+    @staticmethod
+    def decode_archive(archive_obj):
+        metadata_dict = {}
+        for key, value in archive_obj.object.items():
+            try:
+                if key == "$class":
+                    continue
+                decoded_value = archive_obj.decode(key)
+                metadata_dict[key] = decoded_value
+            except Exception as e:
+                print(e)
+                pass
+        return metadata_dict
+
+class XCTCapabilities():
+    @staticmethod
+    def decode_archive(archive_obj):
+        # obj = archive_obj.decode('capabilities-dictionary')
+        # return obj
+        metadata_dict = {}
+        for key, value in archive_obj.object.items():
+            try:
+                if key == "$class":
+                    continue
+                decoded_value = archive_obj.decode(key)
+                metadata_dict[key] = decoded_value
+            except Exception as e:
+                print(e)
+                pass
+        return metadata_dict
+    
 class DTTapMessage:
     @staticmethod
     def decode_archive(archive_obj):
         return archive_obj.decode('DTTapMessagePlist')
+
+class XCTAttachmentFutureMetadata:
+    @staticmethod
+    def decode_archive(archive_obj):
+        metadata_dict = {}
+        for key, value in archive_obj.object.items():
+            try:
+                if key == "$class":
+                    continue
+                decoded_value = archive_obj.decode(key)
+                metadata_dict[key] = decoded_value
+            except Exception as e:
+                print(e)
+                pass
+        return metadata_dict
 
 
 class NSNull:
@@ -124,9 +197,9 @@ class NSError:
     def decode_archive(archive_obj):
         user_info = archive_obj.decode('NSUserInfo')
         if user_info.get('NSLocalizedDescription', '').endswith(' - it does not respond to the selector'):
-            raise UnrecognizedSelectorError(user_info)
-        raise DvtException(archive_obj.decode('NSUserInfo'))
-
+            raise Exception(user_info)
+        raise Exception(archive_obj.decode('NSUserInfo'))
+    
 
 class NSUUID(uuid.UUID):
     @staticmethod
@@ -175,16 +248,29 @@ class NSMutableString:
 
 
 class XCTestConfiguration:
+    
     _default = {
         # 'testBundleURL': UID(3),
         # 'sessionIdentifier': UID(8), # UUID
         'aggregateStatisticsBeforeCrash': {
             'XCSuiteRecordsKey': {}
         },
+        'IDECapabilities': {
+            'expected failure test capability':         True,
+		    'test case run configurations':             True,
+		    'test timeout capability':                  True,
+		    'test iterations':                          True,
+		    'request diagnostics for specific devices': True,
+		    'delayed attachment transfer':              True,
+		    'skipped test capability':                  True,
+		    'daemon container sandbox extension':       True,
+		    'ubiquitous test identifiers':              True,
+		    'XCTIssue capability':                      True,
+        },
         'automationFrameworkPath': '/Developer/Library/PrivateFrameworks/XCTAutomationSupport.framework',
         'baselineFileRelativePath': None,
         'baselineFileURL': None,
-        'defaultTestExecutionTimeAllowance': None,
+        'defaultTestExecutionTimeAllowance': 0,
         'disablePerformanceMetrics': False,
         'emitOSLogs': False,
         'formatVersion': plistlib.UID(2),  # store in UID
@@ -192,17 +278,17 @@ class XCTestConfiguration:
         'initializeForUITesting': True,
         'maximumTestExecutionTimeAllowance': None,
         'productModuleName': 'WebDriverAgentRunner',  # set to other value is also OK
-        'randomExecutionOrderingSeed': None,
+        'randomExecutionOrderingSeed': 0,
         'reportActivities': True,
         'reportResultsToIDE': True,
         'systemAttachmentLifetime': 2,
         'targetApplicationArguments': [],  # maybe useless
-        'targetApplicationBundleID': None,
+        'targetApplicationBundleID': 'com.apple.test.WebDriverAgentRunner-Runner',
         'targetApplicationEnvironment': None,
         'targetApplicationPath': '/whatever-it-does-not-matter/but-should-not-be-empty',
         'testApplicationDependencies': {},
-        'testApplicationUserOverrides': None,
-        'testBundleRelativePath': None,
+        'testApplicationUserOverrides': 0,
+        'testBundleRelativePath': 0,
         'testExecutionOrdering': 0,
         'testTimeoutsEnabled': False,
         'testsDrivenByIDE': False,
@@ -210,7 +296,8 @@ class XCTestConfiguration:
         'testsToRun': None,
         'testsToSkip': None,
         'treatMissingBaselinesAsFailures': False,
-        'userAttachmentLifetime': 1
+        'userAttachmentLifetime': 0,
+        'preferredScreenCaptureFormat': 2
     }
 
     def __init__(self, kv: dict):
@@ -238,6 +325,11 @@ archiver.update_class_map({'DTSysmonTapMessage': DTTapMessage,
                            'NSError': NSError,
                            'NSUUID': NSUUID,
                            'NSURL': NSURL,
+                           'XCTCapabilities': XCTCapabilities,
+                           "NSSet": set,
+                           'XCTAttachmentFutureMetadata': XCTAttachmentFutureMetadata,
+                           'XCTRepetitionPolicy': XCTRepetitionPolicy,
+                           'XCTRuntimeIssueDetectionPolicy': XCTRuntimeIssueDetectionPolicy,
                            'NSValue': NSValue,
                            'NSMutableData': NSMutableData,
                            'NSMutableString': NSMutableString,
@@ -380,8 +472,9 @@ class RemoteServer(LockdownService):
             })
 
     def perform_handshake(self):
+        self.cur_message = 0
         args = MessageAux()
-        args.append_obj({'com.apple.private.DTXBlockCompression': 0, 'com.apple.private.DTXConnection': 1})
+        args.append_obj({'com.apple.private.DTXBlockCompression': 2, 'com.apple.private.DTXConnection': 1})
         self.send_message(0, '_notifyOfPublishedCapabilities:', args, expects_reply=False)
         ret, aux = self.recv_plist()
         if ret != '_notifyOfPublishedCapabilities:':
@@ -401,20 +494,51 @@ class RemoteServer(LockdownService):
         args = MessageAux().append_int(code).append_obj(identifier)
         self.send_message(0, '_requestChannelWithCode:identifier:', args)
         ret, aux = self.recv_plist()
+        # if ret == '_notifyOfPublishedCapabilities:':
+        #     print("got a '_notifyOfPublishedCapabilities:' request from devices")
+        #     ret, aux = self.recv_plist()
+        # if aux is None:
+        #     self.logger.info("receive new data ret = %s",ret)
+        #     ret, aux = self.recv_plist()
+        assert ret is None
+        channel = Channel.create(code, self)
+        self.channel_cache[identifier] = channel
+        self.channel_messages[code] = ChannelFragmenter()
+        return channel
+    
+    def make_channel1(self, identifier , msgId: int) -> Channel:
+        # NOTE: There is also identifier not in self.supported_identifiers
+        # assert identifier in self.supported_identifiers
+        if identifier in self.channel_cache:
+            return self.channel_cache[identifier]
+
+        self.last_channel_code += 1
+        code = self.last_channel_code
+        args = MessageAux().append_int(code).append_obj(identifier)
+        self.send_message(0, '_requestChannelWithCode:identifier:', args, msgId = msgId)
+        ret, aux = self.recv_plist()
+        # if ret == '_notifyOfPublishedCapabilities:':
+        #     print("got a '_notifyOfPublishedCapabilities:' request from devices")
+        #     ret, aux = self.recv_plist()
+ 
         assert ret is None
         channel = Channel.create(code, self)
         self.channel_cache[identifier] = channel
         self.channel_messages[code] = ChannelFragmenter()
         return channel
 
-    def send_message(self, channel: int, selector: str = None, args: MessageAux = None, expects_reply: bool = True):
-        self.cur_message += 1
+    def send_message(self, channel: int, selector: str = None, args: MessageAux = None, expects_reply: bool = True, msgId: int = None):
+        if msgId is not None:
+            _message_id = msgId
+        else:
+            self.cur_message += 1
+            _message_id = self.cur_message
 
         aux = bytes(args) if args is not None else b''
         sel = archiver.archive(selector) if selector is not None else b''
         flags = self.INSTRUMENTS_MESSAGE_TYPE
-        if expects_reply:
-            flags |= self.EXPECTS_REPLY_MASK
+        # if expects_reply:
+        #     flags |= self.EXPECTS_REPLY_MASK
         pheader = dtx_message_payload_header_struct.build(dict(flags=flags, auxiliaryLength=len(aux),
                                                                totalLength=len(aux) + len(sel)))
         mheader = dtx_message_header_struct.build(dict(
@@ -422,24 +546,72 @@ class RemoteServer(LockdownService):
             fragmentId=0,
             fragmentCount=1,
             length=dtx_message_payload_header_struct.sizeof() + len(aux) + len(sel),
-            identifier=self.cur_message,
+            identifier=_message_id,
             conversationIndex=0,
             channelCode=channel,
             expectsReply=int(expects_reply)
         ))
+        print()
+        print("sendMessage: ")
+        print("selector: ", selector)
+        print("aux: ", None if args is None else args.values)
+        print("flags: ", flags)
+        print()
         msg = mheader + pheader + aux + sel
+        if selector == "_IDE_collectNewCrashReportsInDirectories:matchingProcessNames:":
+            name = "/Users/xiao/session.bin"
+            with open(name, 'wb') as file:
+                file.write(msg)
+                print("write _IDE_collectNewCrashReportsInDirectories:matchingProcessNames: message to: session.bin")
         self.service.sendall(msg)
 
+    def send_message1(self, channel: int, selector: str = None, args: MessageAux = None, expects_reply: bool = True):
+        # self.cur_message += 1 
+        # identify must be 1
+        aux = bytes(args) if args is not None else b''
+        sel = archiver.archive(selector) if selector is not None else b''
+        flags = self.INSTRUMENTS_MESSAGE_TYPE
+        # if expects_reply:
+        #     flags |= self.EXPECTS_REPLY_MASK
+        pheader = dtx_message_payload_header_struct.build(dict(flags=flags, auxiliaryLength=len(aux),
+                                                               totalLength=len(aux) + len(sel)))
+        mheader = dtx_message_header_struct.build(dict(
+            cb=dtx_message_header_struct.sizeof(),
+            fragmentId=0,
+            fragmentCount=1,
+            length=dtx_message_payload_header_struct.sizeof() + len(aux) + len(sel),
+            identifier=1,
+            conversationIndex=0,
+            channelCode=channel,
+            expectsReply=int(0)
+        ))
+        print()
+        print("sendMessage1: ")
+        print("selector: ", selector)
+        print("aux: ", None if args is None else args.values)
+        print("flags: ", flags)
+        print()
+        msg = mheader + pheader + aux + sel
+        if selector == "_IDE_collectNewCrashReportsInDirectories:matchingProcessNames:":
+            name = "/Users/xiao/session.bin"
+            with open(name, 'wb') as file:
+                file.write(msg)
+                print("write _IDE_collectNewCrashReportsInDirectories:matchingProcessNames: message to: session.bin")
+        self.service.sendall(msg)
+    
     def recv_plist(self, channel: int = BROADCAST_CHANNEL):
         data, aux = self.recv_message(channel)
         if data is not None:
             try:
                 data = archiver.unarchive(data)
             except archiver.MissingClassMapping as e:
-                pprint(plistlib.loads(data))
+                print(plistlib.loads(data))
                 raise e
             except plistlib.InvalidFileException:
                 self.logger.warning(f'got an invalid plist: {data[:40]}')
+        print("recv_plist: ")
+        print("data: ", data)
+        print("aux: ", aux)
         return data, aux
 
     def recv_message(self, channel: int = BROADCAST_CHANNEL):
@@ -448,6 +620,7 @@ class RemoteServer(LockdownService):
 
         compression = (pheader.flags & 0xFF000) >> 12
         if compression:
+            print("NotImplementedError('Compressed')")
             raise NotImplementedError('Compressed')
 
         if pheader.auxiliaryLength:
@@ -469,6 +642,7 @@ class RemoteServer(LockdownService):
                 # until the waited message queue has at least one message
                 data = self.service.recvall(dtx_message_header_struct.sizeof())
                 mheader = dtx_message_header_struct.parse(data)
+                print("mheader: ", mheader)
 
                 # treat both as the negative and positive representation of the channel code in the response
                 # the same when performing fragmentation
@@ -526,4 +700,5 @@ class Tap:
 
     def __iter__(self):
         while True:
-            yield from self.channel.receive_plist()
+            for result in self.channel.receive_plist():
+                yield result
