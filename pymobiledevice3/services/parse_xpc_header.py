@@ -111,8 +111,8 @@ class ParseDTXHelper():
             # return
         if data == "_XCT_logDebugMessage:":
             print("get _XCT_logDebugMessage:") #data is a list
-            for it in aux:
-                print(it.value)
+            # for it in aux:
+            #     print(it.value)
             # return
         print("DTX Message =======")
         print("mheader: ", mheader)
