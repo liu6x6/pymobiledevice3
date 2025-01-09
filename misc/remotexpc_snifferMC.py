@@ -35,7 +35,6 @@ import socket
 BPLIST_MAGIC = b'bplist'
 PLIST_MAGIC = b'<plist'
 import plistlib
-import pprint
 import xml
 from typing import IO, Optional
 
@@ -122,6 +121,7 @@ fileIndex = 0
 singleIndex = 0
 xpcWrapperIndex = 0
 packet_id = 0
+errorIndex = 0
 
 # pickle_file_path = '{}/{}_{}.pickle'.format(Debug_Folder,address.replace(":",""), rsd_port)
 # if not os.path.isfile(pickle_file_path):
@@ -145,6 +145,12 @@ for service_name, service_data in peer_info["Services"].items():
 print(services)
 def create_stream_key(src: str, sport: int, dst: str, dport: int) -> str:
     return f'{src}/{sport} ==> {dst}/{dport}'
+
+# helper function
+def saveFile(fileName,data):
+    with open(fileName, 'wb') as f:
+        f.write(data)
+        print("write dataframe data to file:", fileName)
 
 
 class TCPStream:
@@ -274,10 +280,10 @@ class RemoteXPCSniffer:
 
         stream_key = create_stream_key(src, src_port, des, des_port)
         print()
-        print()
-        print(stream_key)
-        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
-        print(current_time, stream_key)
+        # print(stream_key)
+        # current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+        # print(current_time, stream_key)
+        logger.info(stream_key)
         data = bytes(tcp_pkt.payload)
         
         folder_name = "{}/{}_{}".format(interface_folder, server_service, local_port)
@@ -318,7 +324,6 @@ class RemoteXPCSniffer:
 
         if "openstdiosocket" in server_service:
             try:
-                # content = data.decode('ascii', errors='replace')
                 print("openstdiosocket data:")
                 if len(data) == 16: 
                     print(data.decode('ascii', errors='replace'))
@@ -343,10 +348,10 @@ class RemoteXPCSniffer:
         global xpcWrapperIndex, interface
         try:
             wrapper = XpcWrapper.parse(previous_frame_data + frame.data)
-            print(wrapper.flags)
+            print("message flags:",wrapper.flags)
             print("message id: ", wrapper.message.message_id)
             # print("message: ", wrapper.message)
-            print("magic: ", wrapper.magic)
+            print("message magic: ", wrapper.magic)
             name = '{}/{}.bin'.format(interface_folder , xpcWrapperIndex)
             with open(name, 'wb') as file:
                 file.write(previous_frame_data + frame.data)
@@ -354,13 +359,14 @@ class RemoteXPCSniffer:
                 xpcWrapperIndex += 1
             payload = wrapper.message.payload
             if payload is None:
+                logger.debug("xpc message payload is None")
                 return None
             xpc_message = decode_xpc_object(payload.obj)
             print(222222222222222222)
         except ConstError:  # if we don't know what this payload is
             # 这里不需要加上previous_frame_data吗？
             print(33333333333333333333)
-            global xcruntest_data, fileIndex, singleIndex
+            global xcruntest_data, fileIndex, singleIndex, errorIndex
             singleFileName = "{}/single_data_{}.zip".format(interface_folder , singleIndex)
             with open(singleFileName, 'wb') as f:
                 f.write(frame.data)
@@ -385,18 +391,17 @@ class RemoteXPCSniffer:
             return
         except StreamError:
             print(4444444444444444)
+            errorIndex +=1
             self._previous_frame_data[stream.key] = previous_frame_data + frame.data
-            streamErrorFile = "{}/streamError.bin".format(interface_folder)
-            with open(streamErrorFile, 'wb') as f:
-                f.write(frame.data)
-                print("write streamError data to file:", streamErrorFile)
+            streamErrorFile = "{}/streamError{}.bin".format(interface_folder,errorIndex)
+            saveFile(streamErrorFile,frame.data)
             return
 
         if stream.key in self._previous_frame_data:
             self._previous_frame_data.pop(stream.key)
 
         if xpc_message is None:
-            print(55555555555555555555)
+            logger.info("xpc_message is None")
             return
 
         logger.info(f'As Python Object (#{frame.stream_id}): {pformat(xpc_message)}')
